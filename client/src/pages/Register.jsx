@@ -1,30 +1,58 @@
 import { useNavigate } from "react-router-dom";
 import { FaGoogleDrive } from "react-icons/fa";
 import { useState } from "react";
+import {BASE_URL} from "../utility/index" 
 
 export default function Register() {
   const navigate = useNavigate();
-   const [serverError, setServerError] = useState("");
-
+  const [serverError, setServerError] = useState("");
   const [isSuccess, setIsSuccess] = useState(false);
 
  const [formData, setFormData] = useState({
-    name: "Anurag Singh",
+    fullname: "Anurag Singh",
     email: "anurag@gmail.com",
     password: "Abcd@12345",
   });
-
+console.log(isSuccess);
    const handleChange = (e) => {
     const { name, value } = e.target;
-
+    setServerError("")
     setFormData((prevFormData) => ({
       ...prevFormData,
       [name]: value,
     }));
   };
 
-  const handleSubmit = () => {
-    console.log("summited");
+  const handleRegisterSubmit =  async (e) => {
+    e.preventDefault()
+    setIsSuccess(false)
+    console.log("regist initiated", {
+      BASE_URL, formData
+    });
+      try {
+      const response = await fetch(`${BASE_URL}/user/register`, {
+        method: "POST",
+        body: JSON.stringify(formData),
+        headers: {
+          "Content-Type": "application/json",
+        },
+      });
+      const data = await response.json();
+      console.log({response});
+      if (!response.ok) {
+  console.log("Server response:", data);
+  setServerError( data.error || data.message || "Registration failed");
+}
+else if(data.status === 201){
+        setIsSuccess(true);
+        setTimeout(() => {
+          navigate("/login");
+        }, 2000);
+      }
+    } catch (error) {
+      console.error("Error:", error);
+      setServerError("Something went wrong. Please try again.");
+    }
   }
 
   return (
@@ -43,7 +71,7 @@ export default function Register() {
           Use Drive with your account
         </p>
 
-         <form className="form" onSubmit={handleSubmit}>
+         <form className="form" onSubmit={handleRegisterSubmit}>
         {/* Name */}
         <div className="form-group">
           <label htmlFor="name" className="label">
@@ -52,9 +80,9 @@ export default function Register() {
           <input
              className="w-full mb-4 rounded-md border px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500"
             type="text"
-            id="name"
-            name="name"
-            value={formData.name}
+            id="fullname"
+            name="fullname"
+            value={formData.fullname}
             onChange={handleChange}
             placeholder="Enter your name"
             required
@@ -62,13 +90,13 @@ export default function Register() {
         </div>
 
         {/* Email */}
-        <div className="form-group">
+        <div className="form-group ">
           <label htmlFor="email" className="label">
             Email
           </label>
           <input
             // If there's a serverError, add an extra class to highlight border
-            className={` ${serverError ? "input-error" : ""} w-full mb-4 rounded-md border px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500`}
+            className={`  ${serverError ? "input-error" : ""} w-full mb-4 rounded-md border px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500`}
             type="email"
             id="email"
             name="email"
@@ -77,8 +105,7 @@ export default function Register() {
             placeholder="Enter your email"
             required
           />
-          {/* Absolutely-positioned error message below email field */}
-          {serverError && <span className="error-msg">{serverError}</span>}
+         
         </div>
 
         {/* Password */}
@@ -97,10 +124,12 @@ export default function Register() {
             required
           />
         </div>
+         {/* Absolutely-positioned error message below email field */}
+          {serverError && <span className=" top-0 text-red-800">{serverError}</span>}
 
         <button
           type="submit"
-          className={`w-full rounded-full bg-blue-600 py-2 text-white hover:bg-blue-700${isSuccess ? "bg-green" : ""}`}
+          className={`w-full rounded-full py-2 text-white ${isSuccess ? "bg-green-400 hover:bg-green-700 " : "bg-blue-600 hover:bg-blue-700 "}`}
         >
           {isSuccess ? "Registration Successful" : "Create account"}
         </button>

@@ -1,6 +1,7 @@
 import { useNavigate } from "react-router-dom";
 import { FaGoogleDrive } from "react-icons/fa";
 import { useState } from "react";
+import {BASE_URL} from "../utility/index.js"
 
 export default function Login() {
   const navigate = useNavigate();
@@ -24,14 +25,36 @@ export default function Login() {
       [name]: value,
     }));
   };
-  const handleSubmit = () => {
-    console.log("login req");
+  const handleLoginSubmit = async (e) => {
+     e.preventDefault();
+
+    try {
+      const response = await fetch(`${BASE_URL}/user/login`, {
+        method: "POST",
+        body: JSON.stringify(formData),
+        headers: {
+          "Content-Type": "application/json",
+        },
+        credentials: "include",
+      });
+
+      const data = await response.json();
+      if (data.error) {
+        setServerError(data.error);
+      } else if(response.status===201) {
+         navigate("/directory");
+      }
+    } catch (error) {
+      console.error("Error:", error);
+      setServerError("Something went wrong. Please try again.");
+    }
   }
+  
 
   return (
     <div className="min-h-screen flex items-center justify-center bg-gray-50">
       <div className="w-full max-w-sm rounded-xl bg-white p-8 shadow-md">
-        
+      
         <div className="flex items-center justify-center gap-2 mb-6">
           <FaGoogleDrive className="text-blue-500 text-3xl" />
           <span className="text-xl font-medium">Drive</span>
@@ -43,7 +66,7 @@ export default function Login() {
         <p className="text-sm text-gray-500 text-center mb-6">
           to continue to Drive
         </p>
-      <form className="form" onSubmit={handleSubmit}>
+      <form className="form" onSubmit={handleLoginSubmit}>
         {/* Email */}
         <div className="form-group">
           <label htmlFor="email" className="label">
@@ -77,7 +100,7 @@ export default function Login() {
             required
           />
           {/* Absolutely-positioned error message below password field */}
-          {serverError && <span className="error-msg">{serverError}</span>}
+          {serverError && <span className="text-red-700">{serverError}</span>}
         </div>
 
         <button type="submit" className="w-full rounded-full bg-blue-600 py-2 text-white hover:bg-blue-700">

@@ -23,10 +23,10 @@ This project replicates how Google Drive *feels* to use — not just how it look
 ## Screenshots
 
 ### Desktop
-![Desktop](/src/assets/desktop.png)
+![Desktop](client/src/assets/desktop.png)
 
 ### Context Menu
-![Context Menu](/src/assets/menusOpen.png)
+![Context Menu](client/src/assets/menusOpen.png)
 
 ### Mobile
-![Mobile](/src/assets/mobile.png)
+![Mobile](client/src/assets/mobile.png)

@@ -1,9 +1,9 @@
-import { folders, files } from "../data/dummyData";
+// import { folders, files } from "../data/dummyData";
 import { useRef, useState } from "react";
 import ContextMenu from "./ContextMenu";
 import { FaFolder } from "react-icons/fa";
 
-export default function FileGrid({handleRenameSubmit, menuState, setMenuState}) {
+export default function FileGrid({folders, files, onRename, handleRenameSubmit, menuState, setMenuState}) {
   
   const menuRef = useRef(null);
 
@@ -24,6 +24,7 @@ export default function FileGrid({handleRenameSubmit, menuState, setMenuState}) 
                 x: e.clientX,
                 y: e.clientY,
                 type: "folder",
+                onRename: onRename
               });
             }}
             className="relative px-4 py-3 flex justify-between bg-secondary rounded-lg shadow-sm"
@@ -41,6 +42,7 @@ export default function FileGrid({handleRenameSubmit, menuState, setMenuState}) 
                   x: rect.right + 4,
                   y: rect.top,
                   type: "folder",
+                  onRename: onRename
                 });
               }}
             >
@@ -67,11 +69,12 @@ export default function FileGrid({handleRenameSubmit, menuState, setMenuState}) 
                 x: e.clientX,
                 y: e.clientY,
                 type: "file",
+                onRename: onRename
               });
             }}
               className="relative bg-white rounded-lg p-3 shadow-sm"
             >
-              <Icon className="text-3xl text-red-500 mb-2" />
+              {/* <Icon className="text-3xl text-red-500 mb-2" /> */}
               <p className="text-sm truncate">{file.name}</p>
 
               <button
@@ -83,6 +86,7 @@ export default function FileGrid({handleRenameSubmit, menuState, setMenuState}) 
                   x: rect.right + 4,
                   y: rect.top,
                   type: "file",
+                  onRename: onRename
                 });
               }}
                 className="absolute top-2 right-2"

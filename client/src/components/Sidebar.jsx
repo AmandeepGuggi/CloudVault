@@ -2,6 +2,12 @@ import { FaStar, FaTrash, FaGoogleDrive } from "react-icons/fa";
 import NewMenu from "./NewMenu";
 import { useEffect, useRef } from "react";
 export default function Sidebar({
+  onUploadFilesClick,
+  fileInputRef,
+  handleFileSelect,
+  directoryName,
+  disabled = false,
+
   onNewClick,
   showNewMenu,
  onCreateFolder,
@@ -40,13 +46,21 @@ if (activeRef.current && !activeRef.current.contains(e.target)) {
       <nav className="text-sm">
          <div ref={desktopMenuRef} className="flex mb-6 items-center gap-3">
                 <button
+               
+
                   onClick={onNewClick}
                   className="flex items-center gap-2 px-4 py-3 bg-white 
                    drop-shadow-lg hover:bg-gray-100 rounded-xl"
                 >
                   <span className="text-xl">+</span> New
                 </button>
-                {showNewMenu && <NewMenu reff={menuRef} onCreateFolder={onCreateFolder} />}
+                {showNewMenu && 
+                <NewMenu reff={menuRef}
+                 fileInputRef={fileInputRef}
+                onUploadFilesClicks={onUploadFilesClick}
+                handleFileSelect={handleFileSelect}
+                 disabled={disabled}
+                 onCreateFolder={onCreateFolder} />}
           </div>
           
         <button className="w-full text-left px-3 py-2 rounded-3xl bg-tertiary">
@@ -80,7 +94,12 @@ if (activeRef.current && !activeRef.current.contains(e.target)) {
                 >
                   <span className="text-lg">+</span>
                 </button>
-                {showNewMenu && <NewMenu reff={menuRef} onCreateFolder={onCreateFolder} />}
+                {showNewMenu && <NewMenu
+                 fileInputRef={fileInputRef}
+                onUploadFilesClicks={onUploadFilesClick}
+                handleFileSelect={handleFileSelect}
+                 disabled={disabled}
+                reff={menuRef} onCreateFolder={onCreateFolder} />}
               </div>
         <button className="w-full py-2 rounded-full bg-tertiary">
       <FaGoogleDrive className="inline text-black bg-white border-2 w-6 h-6 p-0.5 rounded" />
