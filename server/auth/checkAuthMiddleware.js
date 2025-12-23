@@ -15,30 +15,16 @@ dotenv.config({
 const secretKey = process.env.SecretKey
 
 export default async function checkAuthMiddleware(req, res, next) {
-   const { token } = req.cookies;
+  console.log("normal", req.cookies);
+  console.log("signed", req.signedCookies);
+   const { token } = req.signedCookies;
 
     if (!token) {
       return res.status(401).json({ error: "Not logged!" });
     }
   
-    const [payload, oldSignature] = token.split(".");
   
-    const jsonPayload = Buffer.from(payload, "base64url").toString();
-  
-      const newSignature = crypto
-      .createHash("sha256")
-      .update(secretKey)
-      .update(jsonPayload)
-      .update(secretKey)
-      .digest("base64url");
-  
-    if (oldSignature !== newSignature) {
-      res.clearCookie("token");
-      console.log("Invalid signature");
-      return res.status(401).json({ error: "Not logged in!" });
-    }
-  
-      const { id, expiry: expiryTimeInSeconds } = JSON.parse(jsonPayload);
+      const { id, expiry: expiryTimeInSeconds } = JSON.parse(Buffer.from(token, "base64url").toString());
       const currentTimeInSeconds = Math.round(Date.now() / 1000);
       
   

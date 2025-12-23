@@ -34,11 +34,13 @@ export const registerUser = async (req, res, next) => {
   try {
     const userRootDirId = new mongoose.Types.ObjectId();
      const userId = new mongoose.Types.ObjectId();
+     const hashedPassword = crypto.createHash("sha256").update(password).digest("base64url")
+     
     await User.create([{
       _id: userId,
       fullname,
       email,
-      password,
+      password: hashedPassword,
       rootDirId: userRootDirId
     }], { session })
    await Directory.create([{
@@ -70,16 +72,16 @@ export const registerUser = async (req, res, next) => {
 
 export const loginUser = async (req, res, next) => {
   const { email, password } = req.body
+  const hashedPassword = crypto.createHash("sha256").update(password).digest("base64url")
   
   const foundUser = await User.exists({ email })
   if (!foundUser) {
     return res.status(409).json({
-      error: "User does not exists",
-      message: "No user exists with this email account. Please create a new account and then log in."
+      error: "Invalid Credentials",
+      message: "No user exists with this email account or wrong email/password entered."
     })
   }
-
-  const user = await User.findOne({ email, password })
+  const user = await User.findOne({ email, password: hashedPassword })
   if (!user) {
     return res.status(404).json({ error: 'Invalid Credentials' })
   }
@@ -89,16 +91,9 @@ export const loginUser = async (req, res, next) => {
     expiry: Math.round(Date.now() / 1000 + 100000)
   })
 
-  const signature = crypto.createHash("sha256")
-  .update(secretKey)
-  .update(cookiePayload)
-  .update(secretKey)
-  .digest("base64url")
-
-  const signedCookiePayload = `${Buffer.from(cookiePayload).toString("base64url")}.${signature}`;
-  
-  res.cookie('token', signedCookiePayload, {
+  res.cookie('token', Buffer.from(cookiePayload).toString("base64url"), {
     httpOnly: true,
+    signed: true,
     maxAge: 1000 * 60 * 60 * 4 ,
     sameSite: "strict",
   })
@@ -106,6 +101,6 @@ export const loginUser = async (req, res, next) => {
 }
 
 export const logout = (req, res) => {
-  res.clearCookie('uid')
+  res.clearCookie('token')
   res.status(204).end()
 }

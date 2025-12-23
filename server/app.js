@@ -6,9 +6,22 @@ import directoryRoutes from "./routes/directoryRoutes.js"
 import fileRoutes from "./routes/fileRoutes.js"
 import userRoutes from "./routes/userRoutes.js";
 import checkAuthMiddleware from "./auth/checkAuthMiddleware.js";
+import dotenv from "dotenv";
+import path from "path";
+import { fileURLToPath } from "url";
+
+const __filename = fileURLToPath(import.meta.url);
+const __dirname = path.dirname(__filename);
+
+dotenv.config({
+  path: path.resolve(__dirname, "../.env"),
+  debug: false,
+});
+
+const SecretKey = process.env.SecretKey
 try {
   const app = express();
-app.use(cookieParser());
+app.use(cookieParser(SecretKey));
 app.use(express.json());
 app.use(
   cors({
