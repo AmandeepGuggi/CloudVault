@@ -5,63 +5,51 @@ import Directory from "../modals/directoryModal.js";
 import Files from "../modals/fileModal.js";
 
 
-export const createFile = async (req, res, next) => {
-  console.log(req.files);
-
-  if (!req.files || req.files.length === 0) {
-    return res.status(400).json({ error: "No files uploaded" });
+export const createFile = async(req, res, next) => {
+  const user = req.user
+  let _id = req.params.parentDirId ? req.params.parentDirId : req.user.rootDirId;
+  const parentDirData = await Directory.findOne({ _id });
+  if(!parentDirData){
+    return res.status(404).json({error: "Parent directory does not exists"})
   }
+  
+ const filename = req.headers.filename || "untitled";
+ const extension = path.extname(filename);
 
-  const parentDirId = req.params.parentDirId || req.user.rootDirId;
-  const user = req.user;
-
-  const parentDirData = await Directory.findOne({ _id: parentDirId });
-  if (!parentDirData) {
-    return res.status(404).json({ error: "Parent directory does not exist" });
-  }
-
-  try {
-    const insertedDocuments = [];
-
-    for (const file of req.files) {
-      const { originalname, filename, size, path } = file;
-      const extension = originalname.split(".").pop();
-
+    try {
       const insertedFile = await Files.insertOne({
-        name: originalname,
-        extension,
-        size,
-        parentDirId,
-        userId: user._id,
-      });
+      extension,
+      name: filename,
+      parentDirId:  parentDirData._id,
+      userId: user._id
+    })
+    const fullFileName = `${insertedFile._id.toString()}${extension}`;
+    const writeStream = createWriteStream(`./storage/${fullFileName}`);
+    req.pipe(writeStream);
 
-      insertedDocuments.push(insertedFile);
-      console.log(insertedDocuments);
+      req.on("end", async () => {
+        return res.status(201).json({ message: "File Uploaded" });
+      })
+
+      req.on("error", async () => {
+        Files.deleteOne({_id: insertedFile._id })
+        return res.status(404).json({ message: "could not upload file" });
+      })
+
+    } catch (err) {
+      next(err);
     }
 
-    return res.status(201).json({
-      message: `${req.files.length} file(s) uploaded`,
-      files: insertedDocuments,
-    });
-
-  } catch (err) {
-    next(err);
   }
-};
-
 
 export const readFiles = async(req, res) => {
   const { id } = req.params;
   const fileData = await Files.findOne({_id: id , userId: req.user._id})
-  // Check if file exists
   if (!fileData) {
     return res.status(404).json({ error: "No such file exists!" });
   }
+   const filePath = `${process.cwd()}/storage/${id}${fileData.extension}`;
 
-   const filePath = `${process.cwd()}/storage/${id}.${fileData.extension}`;
-
-
-  // If "download" is requested, set the appropriate headers
   if (req.query.action === "download") {
     res.set("Content-Disposition", `attachment; filename=${fileData.name}`);
   }
@@ -69,7 +57,7 @@ export const readFiles = async(req, res) => {
   // Send file
   return res.sendFile(filePath, (err) => {
     if (!res.headersSent && err) {
-      return res.status(404).json({ error: "File not f!" });
+      return res.status(404).json({ error: err });
     }
   });
 }
@@ -100,7 +88,7 @@ export const updateFile = async (req, res, next) => {
       { _id: id, userId: req.user._id },
       { $set: { name: req.body.newFilename } }
     );
-    console.log(result);
+    // console.log(result);
 
     if (result.matchedCount === 0) {
       return res.status(404).json({ error: "File not found or unauthorized!" });

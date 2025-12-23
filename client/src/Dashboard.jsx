@@ -181,7 +181,7 @@ export default function App() {
     const xhr = new XMLHttpRequest();
     xhr.open("POST", `${BASE_URL}/file/${dirId || ""}`, true);
     xhr.withCredentials = true;
-    // xhr.setRequestHeader("filename", currentItem.name);
+    xhr.setRequestHeader("filename", currentItem.name);
 
     xhr.upload.addEventListener("progress", (evt) => {
       if (evt.lengthComputable) {
@@ -197,11 +197,11 @@ export default function App() {
 
     // If user cancels, remove from the queue
     setUploadXhrMap((prev) => ({ ...prev, [currentItem.id]: xhr }));
-    // xhr.send(currentItem.file);
-    const formData = new FormData();
-    formData.append("file", currentItem.file);
+    xhr.send(currentItem.file);
+    // const formData = new FormData();
+    // formData.append("file", currentItem.file);
 
-    xhr.send(formData);
+    // xhr.send(formData);
   }
 
   /**
@@ -467,6 +467,7 @@ export default function App() {
           directoryName={directoryName}
           handleContextMenu={handleContextMenu}
           handleDeleteDirectory={handleDeleteDirectory}
+          handleDeleteFile={handleDeleteFile}
           openRenameModal={openRenameModal}
           BASE_URL={BASE_URL}
           setActiveContextMenu={setActiveContextMenu}

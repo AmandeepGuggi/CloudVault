@@ -44,7 +44,7 @@ export default function FileGrid({
 
       <h2 className="mb-3 font-semibold">Folders</h2>
 
-      <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mb-6">
+      <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-4 gap-4 mb-6">
         {folders.map((f) => (
           <div
             onClick={() =>
@@ -89,7 +89,7 @@ export default function FileGrid({
 
       <h2 className="mb-3 font-semibold">Files</h2>
 
-      <div className="grid grid-cols-2 md:grid-cols-5 gap-4">
+      <div className="grid grid-cols-1 sm:grid-cols-2  md:grid-cols-5 gap-4">
         {files.map((file) => {
             const isUploadingItem = file.id.startsWith("temp-");
           return (
@@ -164,6 +164,7 @@ export default function FileGrid({
       {/* SINGLE CONTEXT MENU BELOW */}
       {menuState && selectedItem && (
         <ContextMenu
+        handleRowClick={handleRowClick}
           item={selectedItem}
           type={menuState.type}
           position={{ x: menuState.x, y: menuState.y }}

@@ -12,6 +12,7 @@ export default function ContextMenu({
   isUploadingItem,
   handleCancelUpload,
   handleDeleteFile,
+  handleRowClick,
 
   item,
   handleDeleteDirectory,
@@ -102,8 +103,9 @@ export default function ContextMenu({
           }}
           className="z-50 w-40 rounded-lg bg-white shadow-lg"
         >
-          <div className="flex w-full items-center gap-3 px-4 py-2 text-sm hover:bg-gray-100">
+          <div onClick={()=> handleRowClick("file", item.id)} className="flex w-full items-center gap-3 px-4 py-2 text-sm hover:bg-gray-100">
             <MdOpenInNew className="h-5 w-5" />
+            
             Open
           </div>
 
@@ -131,7 +133,10 @@ export default function ContextMenu({
           <div
             className={`flex w-full items-center gap-3 px-4 py-2 text-sm
         hover:bg-gray-100 text-red-600 `}
-            onClick={() => handleDeleteFile(item.id)}
+            onClick={() =>{
+              console.log("del file");
+               handleDeleteFile(item.id)
+            }}
           >
             <MdDeleteOutline className="h-5 w-5" />
             Delete
@@ -140,121 +145,5 @@ export default function ContextMenu({
       );
     }
   }
-  // return (
-  //   <div
-  // ref={menuRef}
-  // style={{
-  //   position: "fixed",
-  //   top: position.y,
-  //   left: position.x,
-  // }}
-  // className="z-50 w-40 rounded-lg bg-white shadow-lg"
-  //   >
-
-  //     {visibleOptions.map((opt) => {
-  //       const Icon = opt.icon;
-
-  //       return (
-  //         <button
-  //           key={opt.id}
-  //           className={`flex w-full items-center gap-3 px-4 py-2 text-sm
-  //             hover:bg-gray-100
-  //             ${opt.danger ? "text-red-600" : "text-gray-700"}
-  //           `}
-  //           onClick={() => {
-  //             opt.onClicking()
-  //             console.log(opt.id);
-  //             onClose();
-  //           }}
-  //         >
-  //           <Icon className="h-5 w-5" />
-  //           <span>{opt.label}</span>
-  //         </button>
-  //       );
-  //     })}
-  //   </div>
-  // );
+ 
 }
-
-// function ContextMenu({
-//     item,
-//     contextMenuPos,
-//     isUploadingItem,
-//     handleCancelUpload,
-//     handleDeleteFile,
-//     handleDeleteDirectory,
-//     openRenameModal,
-//     BASE_URL,
-//   }) {
-//     // Directory context menu
-//     if (item.isDirectory) {
-//       return (
-//         <div
-//           className="context-menu"
-//           style={{ top: contextMenuPos.y, left: contextMenuPos.x }}
-//         >
-//           <div
-//             className="context-menu-item"
-//             onClick={() => openRenameModal("directory", item.id, item.name)}
-//           >
-//             Rename
-//           </div>
-//           <div
-//             className="context-menu-item"
-//             onClick={() => handleDeleteDirectory(item.id)}
-//           >
-//             Delete
-//           </div>
-//         </div>
-//       );
-//     } else {
-//       // File context menu
-//       if (isUploadingItem && item.isUploading) {
-//         // Only show "Cancel"
-//         return (
-//           <div
-//             className="context-menu"
-//             style={{ top: contextMenuPos.y, left: contextMenuPos.x }}
-//           >
-//             <div
-//               className="context-menu-item"
-//               onClick={() => handleCancelUpload(item.id)}
-//             >
-//               Cancel
-//             </div>
-//           </div>
-//         );
-//       } else {
-//         // Normal file
-//         return (
-//           <div
-//             className="context-menu"
-//             style={{ top: contextMenuPos.y, left: contextMenuPos.x }}
-//           >
-//             <div
-//               className="context-menu-item"
-//               onClick={() =>
-//                 (window.location.href = `${BASE_URL}/file/${item.id}?action=download`)
-//               }
-//             >
-//               Download
-//             </div>
-//             <div
-//               className="context-menu-item"
-//               onClick={() => openRenameModal("file", item.id, item.name)}
-//             >
-//               Rename
-//             </div>
-//             <div
-//               className="context-menu-item"
-//               onClick={() => handleDeleteFile(item.id)}
-//             >
-//               Delete
-//             </div>
-//           </div>
-//         );
-//       }
-//     }
-//   }
-
-//   export default ContextMenu;

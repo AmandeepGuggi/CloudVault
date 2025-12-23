@@ -80,7 +80,7 @@ if (activeRef.current && !activeRef.current.contains(e.target)) {
     </aside>
 
     {/* MOBILE VIEW */}
-      <aside className=" md:hidden  flex w-20 bg-primary  border-r p-4 flex-col">
+      <aside className=" md:hidden  flex w-18 bg-primary  p-4 flex-col">
       <div className="flex items-center justify-center  gap-2 mb-6 text-xl font-semibold">
         <FaGoogleDrive className="text-blue-500 text-3xl" />
       </div>
