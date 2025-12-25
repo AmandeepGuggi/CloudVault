@@ -13,7 +13,6 @@ export default function Register() {
     email: "anurag@gmail.com",
     password: "Abcd@12345",
   });
-console.log(isSuccess);
    const handleChange = (e) => {
     const { name, value } = e.target;
     setServerError("")

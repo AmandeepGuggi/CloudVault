@@ -14,9 +14,6 @@ dotenv.config({
   debug: false,
 });
 
-const secretKey = process.env.SecretKey
-
-
 export const registerUser = async (req, res, next) => {
   const { fullname, email, password } = req.body
   const foundUser = await User.exists({ email })
@@ -34,13 +31,14 @@ export const registerUser = async (req, res, next) => {
   try {
     const userRootDirId = new mongoose.Types.ObjectId();
      const userId = new mongoose.Types.ObjectId();
-     const hashedPassword = crypto.createHash("sha256").update(password).digest("base64url")
+     const salt = crypto.randomBytes(16)
+     const hashedPassword = crypto.pbkdf2Sync(password, salt, 100000, 32, "sha256")
      
     await User.create([{
       _id: userId,
       fullname,
       email,
-      password: hashedPassword,
+      password: `${salt.toString("base64url")}.${hashedPassword.toString("base64url")}`,
       rootDirId: userRootDirId
     }], { session })
    await Directory.create([{
@@ -57,7 +55,7 @@ export const registerUser = async (req, res, next) => {
   } catch (err) {
     if (err.code === 121) {
       console.log(err);
-      console.log("err is", err.errorResponse.errInfo.details);
+      console.log("err is", err.errorResponse.errInfo.details.schemaRulesNotSatisfied);
       await session.abortTransaction();
       return res.status(400).json({ error: "Validation Error", message: err.errmsg })
     } else {
@@ -68,20 +66,27 @@ export const registerUser = async (req, res, next) => {
   }
 
 }
-
-
 export const loginUser = async (req, res, next) => {
   const { email, password } = req.body
-  const hashedPassword = crypto.createHash("sha256").update(password).digest("base64url")
-  
-  const foundUser = await User.exists({ email })
+  const foundUser = await User.findOne({ email }).lean();
   if (!foundUser) {
     return res.status(409).json({
       error: "Invalid Credentials",
       message: "No user exists with this email account or wrong email/password entered."
     })
   }
-  const user = await User.findOne({ email, password: hashedPassword })
+  const [storedSalt, storedHash] = foundUser.password.split(".");
+  console.log(foundUser.password);
+  const hashedPassword = crypto.pbkdf2Sync(
+  password,                       
+  Buffer.from(storedSalt, "base64url"),
+  100000,                          
+  32,                              
+  "sha256"                        
+)
+console.log(hashedPassword);
+
+  const user = await User.findOne({ email, password: `${storedSalt.toString("base64url")}.${hashedPassword.toString("base64url")}` })
   if (!user) {
     return res.status(404).json({ error: 'Invalid Credentials' })
   }

@@ -1,13 +1,12 @@
 import User from "../modals/userModal.js"
-import crypto from "node:crypto";
-
-
 
 export default async function checkAuth(req, res, next) {
   const { token } = req.signedCookies;
-  console.log(token);
+  console.log("cookies:", req.cookies);
+console.log("signedCookies:", req.signedCookies);
+
   if (!token) {
-    return res.status(401).json({ error: "Not logged!" });
+    return res.status(401).json({ error: "No token , Not logged!" });
   }
 
     const { id, expiry: expiryTimeInSeconds } = JSON.parse(Buffer.from(token, "base64url").toString());

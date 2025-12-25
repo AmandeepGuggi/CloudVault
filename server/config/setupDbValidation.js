@@ -1,25 +1,13 @@
-import { MongoClient } from "mongodb";
-import dotenv from "dotenv";
-import path from "path";
-import { fileURLToPath } from "url";
+import mongoose from "mongoose";
+import { connectDB } from "./mongooseDb.js";
 
-const __filename = fileURLToPath(import.meta.url);
-const __dirname = path.dirname(__filename);
 
-dotenv.config({
-  path: path.resolve(__dirname, "../.env"),
-  debug: false,
-});
-const uri =
-  process.env.MONGODB_URI
-
-const client = new MongoClient(uri);
-
+await connectDB()
+const client = mongoose.connection.getClient();
 async function run() {
   try {
     await client.connect();
-    const db = client.db("driveClone");
-    console.log("✅ Connected to MongoDB");
+    const db = mongoose.connection.db;
 
     // Ensure collections exist
     await db.createCollection("users").catch(() => {});
@@ -39,7 +27,8 @@ async function run() {
             parentDirId: { bsonType: ["objectId", "null"] },
             isDirectory: { bsonType: "bool" },
             createdAt: { bsonType: "date" },
-            updatedAt: { bsonType: "date" }
+            updatedAt: { bsonType: "date" },
+            __v: {bsonType: "int"}
           },
           additionalProperties: true
         }
@@ -56,7 +45,7 @@ async function run() {
           bsonType: "object",
           required: ["fullname", "email", "password"],
           properties: {
-            fullName: { bsonType: "string", minLength: 3 },
+            fullname: { bsonType: "string", minLength: 3 },
             email: {
               bsonType: "string",
               pattern: "^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\\.[a-zA-Z]{2,}$"
@@ -64,7 +53,8 @@ async function run() {
             password: { bsonType: "string", minLength: 8 },
             rootDirId: { bsonType: ["objectId", "null"] },
             createdAt: { bsonType: "date" },
-            updatedAt: { bsonType: "date" }
+            updatedAt: { bsonType: "date" },
+            __v: {bsonType: "int"}
           },
           additionalProperties: true
         }
@@ -83,11 +73,12 @@ async function run() {
           properties: {
             name: { bsonType: "string", minLength: 1 },
             extension: { bsonType: "string", minLength: 1, maxLength: 10 },
-            size: { bsonType: "number", minimum: 0 },
+            size: { bsonType: "int", minimum: 0 },
             userId: { bsonType: "objectId" },
             parentDirId: { bsonType: "objectId" },
             createdAt: { bsonType: "date" },
-            updatedAt: { bsonType: "date" }
+            updatedAt: { bsonType: "date" },
+            __v: {bsonType: "int"}
           },
           additionalProperties: true
         }
