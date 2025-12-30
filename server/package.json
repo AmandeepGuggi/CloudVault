@@ -30,7 +30,9 @@
 
     "mongoose": "^9.0.1",
 
-    "multer": "^2.0.2"
+    "multer": "^2.0.2",
+
+    "nodemailer": "^7.0.12"
 
   }
 

@@ -9,7 +9,7 @@ import directoryRoutes from "./routes/directoryRoutes.js"
 import fileRoutes from "./routes/fileRoutes.js"
 import userRoutes from "./routes/userRoutes.js";
 import checkAuthMiddleware from "./auth/checkAuthMiddleware.js";
-
+import authRoutes from "./routes/authRoutes.js"
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
@@ -36,6 +36,7 @@ app.use(
 app.use("/directory", checkAuthMiddleware, directoryRoutes);
 app.use("/file", checkAuthMiddleware, fileRoutes);
 app.use("/user", userRoutes);
+app.use("/otp", authRoutes);
 
 app.use((err, req, res, next) => {
   console.error("💥 REAL ERROR ↓↓↓");
