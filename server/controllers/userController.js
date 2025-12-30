@@ -1,6 +1,7 @@
 import mongoose from "mongoose"
 import Directory from "../modals/directoryModal.js"
 import User from "../modals/userModal.js"
+import Session from "../modals/sessionModal.js"
 import dotenv from "dotenv";
 import path from "path";
 import { fileURLToPath } from "url";
@@ -65,6 +66,7 @@ export const registerUser = async (req, res, next) => {
   }
 
 }
+
 export const loginUser = async (req, res, next) => {
   const { email, password } = req.body
   const foundUser = await User.findOne({ email }).lean();
@@ -83,15 +85,13 @@ try{
     return res.status(404).json({ error: 'Invalid Credentials' })
   }
 
-  const cookiePayload = JSON.stringify({
-    id: foundUser._id.toString(),
-    expiry: Math.round(Date.now() / 1000 + 100000)
-  })
+  const session = await Session.create({userId: foundUser._id})
 
-  res.cookie('token', Buffer.from(cookiePayload).toString("base64url"), {
+
+  res.cookie('sid', session.id, {
     httpOnly: true,
     signed: true,
-    maxAge: 1000 * 60 * 60 * 4 ,
+    maxAge: 1000 * 60 * 60 * 24 * 7 ,
     sameSite: "strict",
   })
   res.status(201).json({ message: 'logged in' })
@@ -102,6 +102,6 @@ try{
 }
 
 export const logout = (req, res) => {
-  res.clearCookie('token')
+  res.clearCookie('sid')
   res.status(204).end()
 }
