@@ -49,14 +49,21 @@ export default function NameModal({
       if (e.key === "Escape") onClose();
     }
 
+    function handleEnter(e) {
+      if (e.key === "Enter" && document.activeElement === inputRef.current) {
+        onSubmit(e);
+      }
+    }
+
     document.addEventListener("mousedown", handleOutside);
     document.addEventListener("keydown", handleEsc);
-
+    document.addEventListener("keydown", handleEnter);
     return () => {
       document.removeEventListener("mousedown", handleOutside);
       document.removeEventListener("keydown", handleEsc);
+      document.removeEventListener("keydown", handleEnter);
     };
-  }, [onClose]);
+  }, [onClose, onSubmit]);
 
   return createPortal(
     <div className="fixed inset-0 z-99 flex items-center justify-center bg-black/30">
