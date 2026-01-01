@@ -72,6 +72,7 @@ export default function App() {
       const response = await fetch(`${BASE_URL}/directory/${dirId || ""}`, {
         credentials: "include",
       });
+      console.log(response);
 
       if (response.status === 401) {
         // navigate("/login");

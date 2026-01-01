@@ -10,7 +10,7 @@ router.post('/login', loginUser)
 
 router.post("/login-otp", loginWithOtp);
 
-router.get('/', checkAuth, (req, res) => {
+router.post('/', checkAuth, (req, res) => {
   res.status(200).json({
     name: req.user.fullname,
     email: req.user.email,

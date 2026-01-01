@@ -13,6 +13,6 @@ export const verifyOtp = async (req, res) => {
     if(!otpRecord){
         res.status(400).json({error: "Invalid or expired OTP"});
     }
-    console.log(otpRecord);
-    res.json({msg: "otp vvvvvv"})
+    otpRecord.deleteOne()
+    res.json({msg: "otp verified"})
 }

@@ -27,18 +27,21 @@ export const registerUser = async (req, res, next) => {
       message: "A user with this email address already exists. Please try logging in or use a different email."
     })
   }
-    const otpRecord = await OTP.findOne({email, otp})
-    if(!otpRecord){
-        res.status(400).json({error: "Invalid or expired OTP"});
-    }
-
-
+    
   const session = await mongoose.startSession();
 
   // Start transaction properly
   session.startTransaction();
 
   try {
+
+    const otpRecord = await OTP.findOne({email, otp})
+    if(!otpRecord){
+        res.status(400).json({error: "Invalid or expired OTP"});
+    }
+    await otpRecord.deleteOne()
+
+
     const userRootDirId = new mongoose.Types.ObjectId();
      const userId = new mongoose.Types.ObjectId();
      
@@ -57,8 +60,21 @@ export const registerUser = async (req, res, next) => {
       isDirectory: true
     }], { session })
 
-    res.status(201).json({ message: "User Registered", status: 201 })
+    // res.status(201).json({ message: "User Registered", status: 201 })
     await session.commitTransaction();
+
+   
+
+  const loginSession = await Session.create({userId})
+
+  res.cookie('sid', loginSession.id, {
+    httpOnly: true,
+    signed: true,
+    sameSite: "lax",
+    maxAge: 1000 * 60 * 60 * 24 * 7 ,
+  }, {session})
+  console.log("loginSession created", req.signedCookies);
+  res.status(201).json({ message: 'User Registered and logged in', status: 201 })
     
   } catch (err) {
     if (err.code === 121) {
@@ -76,11 +92,11 @@ export const registerUser = async (req, res, next) => {
 }
 
 export const loginUser = async (req, res, next) => {
-  const { email, password } = req.body
+  const { email, password, remeberMe } = req.body
   const foundUser = await User.findOne({ email });
   if (!foundUser) {
     return res.status(409).json({
-      error: "Invalid Credentials",
+      error: "Email or password did not match",
       message: "No user exists with this email account or wrong email/password entered."
     })
   }
@@ -93,13 +109,6 @@ try{
     return res.status(404).json({ error: 'Invalid Credentials' })
   }
 
-  await sendOtpService(email);
-  return res.status(200).json({
-      otpRequired: true,
-      email,
-      message: "OTP sent to registered email",
-    });
-
   const allSession = await Session.find({userId: foundUser.id})
   console.log("allSession:", allSession);
   if(allSession.length >= 2){
@@ -107,11 +116,11 @@ try{
   }
 
   const session = await Session.create({userId: foundUser._id})
-
+ 
   res.cookie('sid', session.id, {
     httpOnly: true,
     signed: true,
-    maxAge: 1000 * 60 * 60 * 24 * 7 ,
+    maxAge: remeberMe? 1000 * 60 * 60 * 24 * 7 : 1000 * 60 * 60 * 24 ,
   })
   res.status(201).json({ message: 'logged in' })
 }catch(err){

@@ -4,7 +4,7 @@ import { useState } from "react";
 import {BASE_URL} from "../utility/index.js"
 
 export default function Login() {
-  const [showOtpModal, setShowOtpModal] = useState(false);
+const [showOtpModal, setShowOtpModal] = useState(false);
 const [otp, setOtp] = useState("");
 const [isSendingOtp, setIsSendingOtp] = useState(false);
 const [isVerifyingOtp, setIsVerifyingOtp] = useState(false);

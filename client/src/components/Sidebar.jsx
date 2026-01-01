@@ -48,7 +48,7 @@ if (activeRef.current && !activeRef.current.contains(e.target)) {
     <aside className="hidden border-r border-gray-300  md:flex w-64 pb-4 pt-3 flex-col">
       <div className="flex items-center px-6 gap-2 border-b border-gray-300 pb-3 mb-6 text-xl font-poppins">
         <FiCloudSnow className="text-black-500 text-3xl " />
-        <span className="tracking-widest">CloudBag</span>
+        <span className="tracking-widest">Cloudex</span>
       </div>
 
       <nav className="text-sm">

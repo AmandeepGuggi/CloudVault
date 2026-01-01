@@ -1,6 +1,19 @@
 import nodemailer from "nodemailer"
 import OTP from "../modals/otpModal.js";
+import dotenv from "dotenv";
+import path from "path";
+import { fileURLToPath } from "url";
 
+const __filename = fileURLToPath(import.meta.url);
+const __dirname = path.dirname(__filename);
+
+dotenv.config({
+  path: path.resolve(__dirname, "../.env"),
+  debug: false,
+  quiet: true 
+});
+
+const AppKey = process.env.APP_KEY
 
 const transporter = nodemailer.createTransport({
   host: "smtp.gmail.com",

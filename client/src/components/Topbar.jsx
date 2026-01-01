@@ -9,7 +9,6 @@ export default function Topbar({
   showProfile,
   onProfileClose,
   onProfileToggle,
-  authChecked,
   setAuthChecked
 }) {
 
@@ -38,7 +37,8 @@ export default function Topbar({
   useEffect(() => {
     async function fetchUser() {
       try {
-        const response = await fetch(`${BASE_URL}/user`, {
+        const response = await fetch(`${BASE_URL}/user/`, {
+          method: "post",
           credentials: "include",
         });
         if (response.ok) {
@@ -49,19 +49,9 @@ export default function Topbar({
           setLoggedIn(true);
         } 
         setAuthChecked(true);
-        // else if (response.status === 401) {
-        //   // User not logged in
-        //   setUserName("Guest User");
-        //   setUserEmail("guest@example.com");
-        //   setLoggedIn(false);
-        // } 
-        // else {
-        //   // Handle other error statuses if needed
-        //   console.error("Error fetching user info:", response.status);
-        // }
       } catch (err) {
         console.error("Error fetching user info:", err);
-        setAuthChecked(true);
+        setAuthChecked(false);
       }
     }
     fetchUser();

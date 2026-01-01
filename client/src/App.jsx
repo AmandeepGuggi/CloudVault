@@ -1,7 +1,10 @@
 import Dashboard from "./Dashboard"
+import HomePage from "./pages/Home"
 import Login from "./pages/Login"
 import Register from "./pages/Register"
 import { createBrowserRouter, RouterProvider } from 'react-router-dom'
+import LoginPage from "./pages/Login/LoginPage"
+import RegisterPage from "./pages/Register/RegisterPage"
 
 const router = createBrowserRouter([
   {
@@ -12,18 +15,26 @@ const router = createBrowserRouter([
     path: "/directory/:dirId?",
     element: <Dashboard />
   },
+  // {
+  //   path: "/login",
+  //   element: <Login />
+  // },
+  // {
+  //   path: "/register",
+  //   element: <Register />
+  // },
   {
     path: "/",
-    element: <Dashboard />
+    element: <HomePage />
   },
   {
     path: "/login",
-    element: <Login />
+    element: <LoginPage />
   },
   {
     path: "/register",
-    element: <Register />
-  }
+    element: <RegisterPage />
+  },
 ])
 
 const App = () => {
