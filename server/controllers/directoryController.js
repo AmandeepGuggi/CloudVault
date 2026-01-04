@@ -1,6 +1,7 @@
 import Directory from "../modals/directoryModal.js"
 import Files from "../modals/fileModal.js";
 import { rm, writeFile } from "fs/promises";
+import mongoose from "mongoose";
 
 
 export const getDirectorybyId = async (req, res) => {
@@ -89,3 +90,41 @@ export const deleteDirectory = async (req, res, next) => {
     next(err);
   }
 }
+
+
+
+
+export const toggleDirectoryStar = async (req, res) => {
+  const { id } = req.params;
+  const userId = req.user._id;
+
+  if (!mongoose.Types.ObjectId.isValid(id)) {
+    return res.status(400).json({ error: "Invalid directory id" });
+  }
+
+  const dir = await Directory.findOne({ _id: id, userId, isDeleted: false });
+
+  if (!dir) {
+    return res.status(404).json({ error: "Directory not found" });
+  }
+
+  dir.isStarred = !dir.isStarred;
+  await dir.save();
+
+  res.json({
+    id: dir._id,
+    isStarred: dir.isStarred,
+  });
+};
+
+export const getStarredDirectories = async (req, res) => {
+  const userId = req.user._id;
+
+  const dirs = await Directory.find({
+    userId,
+    isStarred: true,
+    isDeleted: false,
+  }).sort({ updatedAt: -1 });
+
+  res.json(dirs);
+};

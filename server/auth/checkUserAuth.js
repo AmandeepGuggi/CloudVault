@@ -3,9 +3,7 @@ import User from "../modals/userModal.js"
 
 export default async function checkAuth(req, res, next) {
   const { sid } = req.signedCookies;
-  console.log("RAW cookie header:", req.headers.cookie);
-  console.log("cookies:", req.cookies);
-console.log("signedCookies:", req.signedCookies);
+ console.log('running checkAuth middleware');
 
   if (!sid) {
     return res.status(401).json({ error: "No sid ,Not authenticated, Not logged!" });

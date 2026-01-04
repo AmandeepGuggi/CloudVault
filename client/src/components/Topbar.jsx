@@ -1,6 +1,7 @@
-import { FaPlus, FaSearch, FaToolbox } from "react-icons/fa";
+import { FaSearch } from "react-icons/fa";
 import ProfileMenu from "./ProfileMenu";
-import NewMenu from "./NewMenu";
+import { Settings } from "lucide-react";
+
 import { useRef, useEffect, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { BASE_URL } from "../utility";
@@ -34,20 +35,29 @@ export default function Topbar({
   return () => document.removeEventListener("mousedown", handleOutside);
 }, [showProfile]);
 
-async function getUser(params) {
+async function getUser() {
+  try {
+    const response = await fetch("http://localhost:4000/user/", {
+      method: "GET", 
+      credentials: "include",
+    });
 
-  const response = await fetch(`http://localhost:4000/user/`, {
-    method: "POST",
-    credentials: "include"
-  })
-  if(response.status===200){
-    data = await response.json()
-    console.log(data);
-    setUserName(data.name)
-    setUserEmail(data.email)
+    if (!response.ok) {
+      console.error("Unauthorized or failed:", response.status);
+      navigate("/login")
+      return;
+    }
 
+    const data = await response.json(); 
+
+    setUserName(data.name);
+    setUserEmail(data.email);
+
+  } catch (err) {
+    console.error("Fetch error:", err);
   }
 }
+
 
 useEffect(()=> {
 getUser()
@@ -78,42 +88,45 @@ getUser()
   };
 
   return (
-    <header className="flex items-center border-b border-gray-300 justify-between  px-4 bg-primary relative">
-      <div className="flex items-center md:block w-full mr-4 py-1.75 px-4 outline-none">
+    <header className="flex items-center border-b border-gray-300 justify-between  px-4 lg:bg-primary relative">
+      <div className=" hidden md:flex items-center w-full mr-4 py-1.75 px-4 outline-none">
         <FaSearch className="inline mr-2 text-gray-400" />
          <input
         className="w-[90%] py-2.25 text-[15px] border-0 outline-0"
         placeholder="Start typing to search your file"
       />
-     
-
       </div>
-<div className="h-full border border-gray-300">
+      <div className="flex lg:hidden md:hidden items-center">
+        <div className="py-3 bg-blue-400 m-2 text-white font-bold rounded px-4 ">
+        CV
+      </div>
+      <p className="text-[20px] font-bold "> CloudVault</p>
+      </div>
 
-</div>
-    <div 
-  className=" pl-3 "
-  onClick={onProfileToggle}
->
-  {userName ? (
-   <div className="flex items-center gap-3">
-     <span className="text-sm font-semibold text-white rounded-full overflow-hidden min-w-9 h-9 flex items-center justify-center  bg-orange-400 cursor-pointer">
+
+<div className="flex items-center gap-4 pl-3">
+
+  {/* Settings — desktop only */}
+  <button
+    className="hidden md:flex items-center justify-center w-9 h-9 rounded-md text-gray-500 hover:text-gray-700 hover:bg-gray-100 transition"
+    aria-label="Settings"
+    onClick={() => navigate("/settings")}
+  >
+    <Settings size={18} />
+  </button>
+
+  {/* Profile avatar */}
+  <div onClick={onProfileToggle}>
+    <span className="text-sm font-semibold text-white rounded-full overflow-hidden min-w-9 h-9 flex items-center justify-center bg-orange-400 cursor-pointer">
       {userName.charAt(0).toUpperCase()}
     </span>
-    <div>
-      <p className="text-sm font-bold tracking-widest">{userName}</p>
-      <p className="text-sm ">{userEmail}</p>
-    </div>
-    </div>
-  ) : (
-    <img
-      src="/photo2.jpeg"
-      alt="user"
-      className="object-cover w-full h-full"
-      onError={() => setImgError(true)}
-    />
-  )}
+  </div>
+
 </div>
+
+
+
+
 
 
       {showProfile &&  <ProfileMenu handleLogout={handleLogout} loggedIn={loggedIn} userName={userName} userEmail={userEmail} reff={profileRef} />

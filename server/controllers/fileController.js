@@ -3,6 +3,7 @@ import path from "path";
 import { createWriteStream, readFile } from "fs";
 import Directory from "../modals/directoryModal.js";
 import Files from "../modals/fileModal.js";
+import mongoose from "mongoose";
 
 
 // export const createFile = async(req, res, next) => {
@@ -174,3 +175,41 @@ export const deleteFile =  async (req, res, next) => {
     next(err);
   }
 }
+
+
+
+
+export const toggleFileStar = async (req, res) => {
+  const { id } = req.params;
+  const userId = req.user._id;
+
+  if (!mongoose.Types.ObjectId.isValid(id)) {
+    return res.status(400).json({ error: "Invalid file id" });
+  }
+
+  const file = await File.findOne({ _id: id, userId, isDeleted: false });
+
+  if (!file) {
+    return res.status(404).json({ error: "File not found" });
+  }
+
+  file.isStarred = !file.isStarred;
+  await file.save();
+
+  res.json({
+    id: file._id,
+    isStarred: file.isStarred,
+  });
+};
+
+export const getStarredFiles = async (req, res) => {
+  const userId = req.user._id;
+
+  const files = await File.find({
+    userId,
+    isStarred: true,
+    isDeleted: false,
+  }).sort({ updatedAt: -1 });
+
+  res.json(files);
+};

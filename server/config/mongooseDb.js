@@ -1,17 +1,7 @@
-import dotenv from "dotenv";
-import path from "path";
-import { fileURLToPath } from "url";
 import mongoose from "mongoose";
 
-const __filename = fileURLToPath(import.meta.url);
-const __dirname = path.dirname(__filename);
 
-dotenv.config({
-  path: path.resolve(__dirname, "../.env"),
-  debug: false,
-});
-
-const connectionStr = process.env.MONGODB_URI
+const connectionStr = "mongodb://driveAdmin:driveAdmin@localhost:27017/driveClone?authSource=admin&replicaSet=rs0"
 export async function connectDB() {
   try{
     console.log("connected Databse");

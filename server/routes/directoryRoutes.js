@@ -16,5 +16,7 @@ router.patch('/', renameDirectory);
 
 router.delete("/:id", deleteDirectory);
 
+// router.patch('/:id/star', );
+// router.get('/starred', );
 
 export default router;

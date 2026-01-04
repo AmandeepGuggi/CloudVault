@@ -15,6 +15,10 @@ const otpSchema = new mongoose.Schema({
     default: Date.now,
     expires: 600,
   },
+   deletedAt: {
+      type: Date,
+      default: null,
+    },
 });
 
 const OTP = mongoose.model("OTP", otpSchema);

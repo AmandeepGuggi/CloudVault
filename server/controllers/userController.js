@@ -2,21 +2,8 @@ import mongoose from "mongoose"
 import Directory from "../modals/directoryModal.js"
 import User from "../modals/userModal.js"
 import Session from "../modals/sessionModal.js"
-import dotenv from "dotenv";
-import path from "path";
-import { fileURLToPath } from "url";
 import OTP from "../modals/otpModal.js";
-import { sendOtpService } from "../services/sendOtpService.js";
 
-
-
-const __filename = fileURLToPath(import.meta.url);
-const __dirname = path.dirname(__filename);
-
-dotenv.config({
-  path: path.resolve(__dirname, "../.env"),
-  debug: false,
-});
 
 export const registerUser = async (req, res, next) => {
   const { fullname, email, password, otp } = req.body
@@ -93,44 +80,42 @@ export const registerUser = async (req, res, next) => {
 
 }
 
-// export const loginUser = async (req, res, next) => {
-//   const { email, password, remeberMe } = req.body
-//   const foundUser = await User.findOne({ email });
-//   if (!foundUser) {
-//     return res.status(409).json({
-//       error: "Email or password did not match",
-//       message: "No user exists with this email account or wrong email/password entered."
-//     })
-//   }
+export const loginUser = async (req, res, next) => {
+  const { email, password, rememberMe } = req.body
+  const foundUser = await User.findOne({ email });
+  if (!foundUser) {
+      return res.status(401).json({ error: "Invalid credentials" });
+    }
  
-// try{
+try{
 
-//   const isPasswordValid = await foundUser.comparePassword(password)
+  const isPasswordValid = await foundUser.comparePassword(password)
 
-//   if (!isPasswordValid) {
-//     return res.status(404).json({ error: 'Invalid Credentials' })
-//   }
+  if (!isPasswordValid) {
+    return res.status(401).json({ error: 'Invalid Credentials' })
+  }
 
-//   const allSession = await Session.find({userId: foundUser.id})
-//   if(allSession.length >= 2){
-//     await allSession[0].deleteOne()
-//   }
+ await Session.deleteMany({ userId: foundUser._id }); 
+ res.clearCookie('sid')
+  
+ const maxAge = rememberMe
+      ? 1000 * 60 * 60 * 24 * 7
+      : 1000 * 60 * 60 * 24;
 
-//   const session = await Session.create({userId: foundUser._id})
- 
-//   res.cookie('sid', session.id, {
-//     httpOnly: true,
-//     signed: true,
-//     maxAge: remeberMe? 1000 * 60 * 60 * 24 * 7 : 1000 * 60 * 60 * 24 ,
-//      sameSite: "lax",   // REQUIRED
-//   path: "/",
-//   })
-//   res.status(201).json({ message: 'logged in' })
-// }catch(err){
-//   console.log("login err is", err);
-//   res.end()
-// }
-// }
+  const session = await Session.create({userId: foundUser._id})
+  console.log("created session", session);
+
+  res.cookie('sid', session.id.toString(), {
+    httpOnly: true,
+    signed: true,
+    maxAge
+  })
+  res.status(201).json({ message: 'logged in' })
+}catch(err){
+  console.log("login err is", err);
+  res.end()
+}
+}
 
 
 // export const loginWithOtp = async (req, res) => {
@@ -188,47 +173,13 @@ export const registerUser = async (req, res, next) => {
 
 
 
-export const loginUser = async (req, res, next) => {
-  const { email, password } = req.body
-  const foundUser = await User.findOne({ email });
-  console.log(foundUser);
-  if (!foundUser) {
-    return res.status(409).json({
-      error: "Invalid Credentials",
-      message: "No user exists with this email account or wrong email/password entered."
-    })
-  }
- 
-try{
 
-  const isPasswordValid = await foundUser.comparePassword(password)
-
-  if (!isPasswordValid) {
-    return res.status(404).json({ error: 'Invalid Credentials' })
-  }
-
-  const allSession = await Session.find({userId: foundUser.id})
-  if(allSession.length >= 2)
-  {
-    await allSession[0].deleteOne()
-  }
-
-  const session = await Session.create({userId: foundUser._id})
-
-  res.cookie('sid', session.id, {
-    httpOnly: true,
-    signed: true,
-    maxAge: 1000 * 60 * 60 * 24 * 7 ,
-  })
-  res.status(201).json({ message: 'logged in' })
-}catch(err){
-  console.log("login err is", err);
-  res.end()
-}
-}
 
 export const logout = async (req, res) => {
   const { sid } = req.signedCookies;
+   if (sid) {
+    await Session.findByIdAndDelete(sid);
+  }
   await Session.findByIdAndDelete(sid)
   res.clearCookie('sid')
   res.status(204).end()

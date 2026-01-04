@@ -21,7 +21,8 @@ router.patch("/", updateFile);
 // DELETE
 router.delete("/:id", deleteFile);
 
-
+// router.patch('/:id/star', );
+// router.get('/starred', );
 
 
 export default router;

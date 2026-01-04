@@ -19,7 +19,15 @@ const directorySchema = new Schema({
         type: Boolean,
         required: true,
         default: true
-    }
+    },
+    isStarred: {
+        type: Boolean,
+        default: false
+    },
+    isDeleted: {
+        type: Boolean,
+        default: false
+    },
 }, {
     strict: 'throw',
     timestamps: true,

@@ -2,10 +2,10 @@ import { useState, useRef, useEffect } from "react";
 import Sidebar from "./components/Sidebar";
 import Topbar from "./components/Topbar";
 import FileGrid from "./components/FileGrid";
-import { folders, files } from "./data/dummyData";
 import NameModal from "./components/NameModal";
 import { useParams, useNavigate } from "react-router-dom";
 import { BASE_URL, getUniquename } from "./utility/index.js";
+import BottomNav from "./components/BottomNav.jsx";
 
 export default function App() {
   const [authChecked, setAuthChecked] = useState(false);
@@ -72,7 +72,6 @@ export default function App() {
       const response = await fetch(`${BASE_URL}/directory/${dirId || ""}`, {
         credentials: "include",
       });
-      console.log(response);
 
       if (response.status === 401) {
         // navigate("/login");
@@ -95,7 +94,6 @@ export default function App() {
   }
 
   useEffect(() => {
-    if (!authChecked) return;
     getDirectoryItems();
     // Reset context menu
     setActiveContextMenu(null);
@@ -424,6 +422,7 @@ export default function App() {
         directoryName={directoryName}
         onUploadFilesClick={() => {
           fileInputRef.current.click();
+          // setShowNewMenu(false);  
         }}
         fileInputRef={fileInputRef}
         handleFileSelect={handleFileSelect}
@@ -454,7 +453,7 @@ export default function App() {
             <div className="error-message">{errorMessage}</div>
           )}
 
-        <main className="p-3 h-full bg-white mb-2 mr-4 ml-4 overflow-y-auto">
+        <main className="p-3 h-full bg-primary  md:bg-white overflow-y-auto">
           <FileGrid
           directoryName={directoryName}
           handleContextMenu={handleContextMenu}
@@ -478,6 +477,27 @@ export default function App() {
             }}
           />
         </main>
+
+        <BottomNav 
+        onAddClick={() => setShowNewMenu(!showNewMenu)}
+          directoryName={directoryName}
+          setShowNewMenu={setShowNewMenu}
+        onUploadFilesClick={() => {
+          fileInputRef.current.click();
+        }}
+        fileInputRef={fileInputRef}
+        handleFileSelect={handleFileSelect}
+        disabled={
+          errorMessage ===
+          "Directory not found or you do not have access to it!"
+        }
+        onNewClick={() => setShowNewMenu(!showNewMenu)}
+        showNewMenu={showNewMenu}
+        onCreateFolder={() => {
+          setShowNewMenu(false);
+          setShowCreateFolder(true);
+        }}
+        />
       </div>
       {showCreateFolder && (
         <NameModal
