@@ -11,9 +11,9 @@ import {
 export default function ContextMenu({
   isUploadingItem,
   handleCancelUpload,
-  handleDeleteFile,
   handleRowClick,
-
+  moveToBin,
+  toggleStar,
   item,
   handleDeleteDirectory,
   openRenameModal,
@@ -22,7 +22,7 @@ export default function ContextMenu({
   position,
   onClose,
 }) {
-  console.log(item);
+ 
   useEffect(() => {
     function handleOutside(e) {
       if (menuRef.current && !menuRef.current.contains(e.target)) {
@@ -43,7 +43,7 @@ export default function ContextMenu({
           top: position.y,
           left: position.x,
         }}
-        className="z-50 w-40 rounded-lg bg-white shadow-lg"
+        className="z-50 w-40 cursor-pointer rounded-lg bg-white shadow-lg"
       >
         <div
           className={`flex w-full items-center gap-3 px-4 py-2 text-sm hover:bg-gray-100  `}
@@ -53,9 +53,9 @@ export default function ContextMenu({
         </div>
         <div
           className={`flex w-full items-center gap-3 px-4 py-2 text-sm hover:bg-gray-100  `}
-          onClick={() => openRenameModal("directory", item.id, item.name)}
+          onClick={() => toggleStar(item.id, item.isDirectory)}
         >
-          <MdStarBorder className="h-5 w-5" /> Add to starred
+          <MdStarBorder className="h-5 w-5" /> {item.isStarred ? "Remove starred" : "Add to starred"}
         </div>
         <div
           className={`flex w-full items-center gap-3 px-4 py-2 text-sm
@@ -79,7 +79,7 @@ export default function ContextMenu({
             top: position.y,
             left: position.x,
           }}
-          className="z-50 w-40 rounded-lg bg-white shadow-lg"
+          className="z-50 w-40 cursor-pointer rounded-lg bg-white shadow-lg"
         >
           <div
             className={`flex w-full items-center gap-3 px-4 py-2 text-sm
@@ -101,7 +101,7 @@ export default function ContextMenu({
             top: position.y,
             left: position.x,
           }}
-          className="z-50 w-40 rounded-lg bg-white shadow-lg"
+          className="z-50 w-40 cursor-pointer rounded-lg bg-white shadow-lg"
         >
           <div onClick={()=> handleRowClick("file", item.id)} className="flex w-full items-center gap-3 px-4 py-2 text-sm hover:bg-gray-100">
             <MdOpenInNew className="h-5 w-5" />
@@ -125,21 +125,21 @@ export default function ContextMenu({
             <MdDriveFileRenameOutline className="h-5 w-5" />
             Rename
           </div>
-          <div
+          <div onClick={() => toggleStar(item.id, item.isDirectory)}
             className={`flex w-full items-center gap-3 px-4 py-2 text-sm hover:bg-gray-100  `}
           >
-            <MdStarBorder className="h-5 w-5" /> Add to starred
+            <MdStarBorder className="h-5 w-5" /> {item.isStarred ? "Remove starred" : "Add to starred"}
           </div>
           <div
             className={`flex w-full items-center gap-3 px-4 py-2 text-sm
         hover:bg-gray-100 text-red-600 `}
             onClick={() =>{
               console.log("del file");
-               handleDeleteFile(item.id)
+               moveToBin(item.id)
             }}
           >
             <MdDeleteOutline className="h-5 w-5" />
-            Delete
+            Move to bin
           </div>
         </div>
       );

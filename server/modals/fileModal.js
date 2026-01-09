@@ -28,7 +28,7 @@ const FilesSchema = new Schema({
     },
     isDeleted: {
         type: Boolean,
-        default: false
+        default: false,
     },
      deletedAt: {
       type: Date,
@@ -39,6 +39,9 @@ const FilesSchema = new Schema({
     timestamps: true, 
     collection: "files"
 })
-
+FilesSchema.index(
+  { deletedAt: 1 },
+  { expireAfterSeconds: 864000 } // 10 days in seconds
+);
 const Files = model("Files", FilesSchema)
 export default Files

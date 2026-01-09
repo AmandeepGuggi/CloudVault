@@ -11,10 +11,10 @@ export const getDirectorybyId = async (req, res) => {
 if (!doesExist) {
     return res.status(404).json({ error: "Directory not found or you do not have access to it!" });
   }
-  const directoryData = await Directory.findOne({_id: id}).lean();
+  const directoryData = await Directory.findOne({_id: id, isDeleted: false}).lean();
 
-  const files = await Files.find({parentDirId: id }).select("name userId parentDirId size updatedAt isStarred isDeleted").lean()
-  const directories = await Directory.find({ parentDirId: id }).select("name userId parentDirId isDirectory isStarred isDeleted").lean()
+  const files = await Files.find({parentDirId: id , isDeleted: false}).select("name userId parentDirId size updatedAt isStarred isDeleted").lean()
+  const directories = await Directory.find({ parentDirId: id, isDeleted: false }).select("name userId parentDirId isDirectory isStarred isDeleted").lean()
   
   return res.status(200).json({ ...directoryData, files: files.map((file) => ({...file, id: file._id})), directories: directories.map((dir) => ({...dir, id: dir._id}) ) })
 }
@@ -58,7 +58,7 @@ export const renameDirectory = async (req, res, next) => {
   }
 }
 
-export const deleteDirectory = async (req, res, next) => {
+export const deleteFolderPermanently = async (req, res, next) => {
   const user = req.user;
   const id = req.params.id;
 
@@ -114,8 +114,6 @@ export const toggleDirectoryStar = async (req, res) => {
   });
 };
 
-
-
 export const getStarredDirectories = async (req, res) => {
   const userId = req.user
 
@@ -125,4 +123,57 @@ export const getStarredDirectories = async (req, res) => {
     isDeleted: false,
   }).sort({ updatedAt: -1 });
   res.json(dirs);
+};
+
+export const moveFolderToBin = async (req, res) => {
+  const { id } = req.params;
+  const userId = req.user._id;
+
+  const folder = await Directory.findOne({
+    _id: id,
+    userId,
+    isDeleted: false,
+  });
+
+  if (!folder) {
+    return res.status(404).json({ error: "Folder not found" });
+  }
+
+  folder.isDeleted = true;
+  folder.deletedAt = new Date();
+  await folder.save();
+
+  res.json({ message: "Folder moved to bin" });
+};
+
+export const restoreFolder = async (req, res) => {
+  const { id } = req.params;
+  const userId = req.user._id;
+
+  const folder = await Directory.findOne({
+    _id: id,
+    userId,
+    isDeleted: true,
+  });
+
+  if (!folder) {
+    return res.status(404).json({ error: "Folder not found in bin" });
+  }
+
+  folder.isDeleted = false;
+  folder.deletedAt = null;
+  await folder.save();
+
+  res.json({ message: "Folder restored" });
+};
+
+export const getBinFolders = async (req, res) => {
+  const userId = req.user._id;
+
+  const folders = await Directory.find({
+    userId,
+    isDeleted: true,
+  }).sort({ deletedAt: -1 });
+
+  res.json(folders);
 };

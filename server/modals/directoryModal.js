@@ -32,7 +32,12 @@ const directorySchema = new Schema({
     strict: 'throw',
     timestamps: true,
     collection: "directories"
-})
+});
+
+directorySchema.index(
+  { deletedAt: 1 },
+  { expireAfterSeconds: 864000 } // 10 days in seconds
+);
 
 
 const Directory = model("directories", directorySchema)

@@ -158,9 +158,9 @@ export const updateFile = async (req, res, next) => {
 };
 
 
-export const deleteFile =  async (req, res, next) => {
+export const deleteFilePermanently =  async (req, res, next) => {
   const { id } = req.params;
-  const fileData = await Files.findOne({_id: id, userId: req.user._id});
+  const fileData = await Files.findOne({_id: id, userId: req.user._id, isDeleted: true});
 
   // Check if file exists
   if (!fileData) {
@@ -212,3 +212,68 @@ export const getStarredFiles = async (req, res) => {
   }).sort({ updatedAt: -1 });
   res.json(files);
 };
+
+
+export const moveFileToBin = async (req, res) => {
+  const { id } = req.params;
+  const userId = req.user._id;
+  console.log({userId});
+console.log("res rece");
+const file = await Files.findOneAndUpdate(
+    { _id: id, userId },
+    {
+      isDeleted: false,
+    },
+  );
+  console.log({file});
+
+ if (!file) {
+    return res.status(404).json({ error: "File not found" });
+  }
+  const delFile = await Files.findOneAndUpdate(
+    { _id: id, userId },
+    {
+      isDeleted: true,
+      deletedAt: new Date()
+    },
+    { new: true }
+  );
+console.log({delFile});
+ 
+
+  res.json({ success: true });
+};
+
+export const getBinFiles = async (req, res) => {
+  const userId = req.user._id;
+
+  const files = await Files.find({
+    userId,
+    isDeleted: true
+  }).sort({ deletedAt: -1 });
+
+  res.json(files);
+};
+
+export const restoreFile = async (req, res) => {
+  const { id } = req.params;
+  const userId = req.user._id;
+
+  const file = await Files.findOneAndUpdate(
+    { _id: id, userId },
+    {
+      isDeleted: false,
+      deletedAt: null
+    },
+    { new: true }
+  );
+
+  if (!file) {
+    return res.status(404).json({ error: "File not found" });
+  }
+
+  res.json({ success: true });
+};
+
+
+

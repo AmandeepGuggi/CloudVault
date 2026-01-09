@@ -236,6 +236,41 @@ const [directoryName, setDirectoryName] = useState("My Files");
           return copy;
         });
       }
+
+      async function moveFileToBin(fileId) {
+        console.log("del id", fileId);
+  try {
+    await fetch(`${BASE_URL}/file/${fileId}/bin`, {
+      method: "PATCH",
+      credentials: "include",
+    });
+
+    getDirectoryItems();
+
+  } catch (err) {
+    console.error("Failed to move file to bin", err);
+  }
+}
+
+async function moveFolderToBin(folderId) {
+  try {
+    const res = await fetch(`${BASE_URL}/directory/${folderId}/bin`, {
+      method: "PATCH",
+      credentials: "include",
+    });
+
+    if (!res.ok) {
+      throw new Error("Failed to move folder to bin");
+    }
+
+    // Remove folder from current view immediately (optimistic UI)
+    getDirectoryItems();
+  } catch (err) {
+    console.error("Move folder to bin failed", err);
+  }
+}
+
+
     
       /**
        * Delete a file/directory
@@ -254,19 +289,7 @@ const [directoryName, setDirectoryName] = useState("My Files");
         }
       }
     
-      async function handleDeleteDirectory(id) {
-        setErrorMessage("");
-        try {
-          const response = await fetch(`${BASE_URL}/directory/${id}`, {
-            method: "DELETE",
-            credentials: "include",
-          });
-          await handleFetchErrors(response);
-          getDirectoryItems();
-        } catch (error) {
-          setErrorMessage(error.message);
-        }
-      }
+  
 
      /**
    * Utility: handle fetch errors
@@ -476,19 +499,8 @@ return 0;
 
     const data = await res.json();
     console.log({data});
-    if (type === undefined) {
-      setFilesList(prev =>
-        prev.map(f =>
-          f.id === id ? { ...f, isStarred: data.isStarred } : f
-        )
-      );
-    } else {
-      setDirectoriesList(prev =>
-        prev.map(d =>
-          d.id === id ? { ...d, isStarred: data.isStarred } : d
-        )
-      );
-    }
+    getDirectoryItems()
+    setMenuState(null);
   } catch (err) {
     console.error("Failed to toggle star", err);
   }
@@ -948,12 +960,14 @@ const uploadProgress = progressMap[item.id] || 0;
           position={{ x: menuState.x, y: menuState.y }}
           menuRef={menuRef}
           BASE_URL={BASE_URL}
-          handleDeleteDirectory={handleDeleteDirectory}
+          moveToBin= {moveFileToBin}
+          handleDeleteDirectory={moveFolderToBin}
           handleDeleteFile={handleDeleteFile}
           handleCancelUpload={handleCancelUpload}
           isUploadingItem={selectedItem.id.startsWith("temp-")}
           handleRenameSubmit={handleRenameSubmit}
           openRenameModal={openRenameModal}
+          toggleStar={toggleStar}
           onClose={() => {
             setMenuState(null);
             setActiveContextMenu(null);
