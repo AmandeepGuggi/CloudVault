@@ -9,6 +9,7 @@ import Starred from "./pages/Starred"
 import Bin from "./pages/Bin"
 import DashboardLayout from "./DashboardLayout"
 import Home from "./pages/home"
+import Settings from "./pages/Setting/Settings"
 
 const router = createBrowserRouter([
    {
@@ -23,29 +24,16 @@ const router = createBrowserRouter([
     path: "/register",
     element: <RegisterPage />
   },
-  // {
-  //   path: "/directory",
-  //   element: <Dashboard />,
-  // },
-  // {
-  //   path: "/directory/:dirId?",
-  //   element: <Dashboard />
-  // },
-  // {
-  //   path: "/bin",
-  //   element: <Bin />
-  // },
-  // {
-  //   path: "/starred",
-  //   element: <Starred />
-  // },
+  {
+    path: "/settings",
+    element: <Settings />
+  },
  {
     path: "/app",
     element: <DashboardLayout />,
     children: [
-      { index: true, element: <Home /> },          // /app
-      { path: "home", element: <Home /> },          // /app
-      { path: ":dirId?", element: <Home /> },
+      { index: true, element: <Home /> },         
+      { path: ":dirId?", element: <Home /> },  //app/29736e917361976
       { path: "starred", element: <Starred /> },   // /app/starred
       { path: "bin", element: <Bin /> },           // /app/bin
     ]

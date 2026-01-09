@@ -114,8 +114,8 @@ getUser()
   {/* Settings and Bell — desktop only */}
     <button
     className=" md:flex items-center justify-center w-9 h-9 rounded-md text-black hover:text-gray-700 hover:bg-gray-100 transition"
-    aria-label="Settings"
-    onClick={() => navigate("/settings")}
+    aria-label="Notifications"
+    onClick={() => navigate("/notifications")}
   >
     <Bell size={18} />
   </button>
@@ -129,11 +129,38 @@ getUser()
 
 
   {/* Profile avatar */}
-  <div onClick={onProfileToggle}>
-    <span className="text-sm font-semibold text-white rounded-full overflow-hidden min-w-9 h-9 flex items-center justify-center bg-orange-400 cursor-pointer">
+  {/* <div onClick={onProfileToggle}>
+    <div className="flex items-center gap-2 cursor-pointer"> 
+      <span className="text-sm font-semibold text-white rounded-full overflow-hidden min-w-9 h-9 flex items-center justify-center bg-orange-400 cursor-pointer">
       {userName.charAt(0).toUpperCase()}
     </span>
+     <div className="flex flex-col leading-tight"> 
+       <span className="hidden md:flex text-sm text-gray-700">{userName}</span>
+      <span className="hidden md:flex text-sm text-gray-700">{userEmail}</span>
+     </div>
+    </div>
+  </div> */}
+
+  <div
+  onClick={onProfileToggle}
+  className="flex items-center gap-3 px-2 py-1 rounded-md cursor-pointer hover:bg-gray-100 transition"
+>
+  {/* Avatar */}
+  <span className="flex items-center justify-center w-9 h-9 rounded-full bg-orange-400 text-white text-sm font-semibold shrink-0">
+    {userName?.charAt(0).toUpperCase()}
+  </span>
+
+  {/* Text */}
+  <div className="hidden md:flex flex-col leading-tight">
+    <span className="text-sm font-medium text-gray-800 max-w-[120px] truncate">
+      {userName}
+    </span>
+    <span className="text-xs text-gray-500 max-w-[140px] truncate">
+      {userEmail}
+    </span>
   </div>
+</div>
+
 
 </div>
 

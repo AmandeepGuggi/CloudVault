@@ -13,7 +13,7 @@ function LandingPage() {
               <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-gradient-to-br from-blue-500 to-blue-600 shadow-lg shadow-blue-500/30">
                 <FolderOpen className="h-5 w-5 text-white" />
               </div>
-              <span className="text-xl font-bold tracking-tight text-slate-900">Cloudex</span>
+              <span className="text-xl font-bold tracking-tight text-slate-900">CloudVault</span>
             </div>
             <nav className=" items-center gap- md:flex">
               <button onClick={()=> {navigate("/register")}} className="px-4 py-2 border-2 border-blue-600 rounded text-sm font-medium hover:bg-blue-600 hover:text-white transition-colors">

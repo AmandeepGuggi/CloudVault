@@ -17,11 +17,14 @@ A **Google Drive–style file manager UI** built using **React** and **Tailwind 
 
 ## Screenshots
 
+### Landing Page
+![Landing](client/src/assets/landing.png) 
+
 ### Desktop
 ![Desktop](client/src/assets/desktop.png)
 
-### Context Menu
-![Context Menu](client/src/assets/menusOpen.png)
-
 ### Mobile
 ![Mobile](client/src/assets/mobile.png)
+
+### Settings
+![Setting](client/src/assets/settings.png)
