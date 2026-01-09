@@ -1,4 +1,4 @@
-import { useEffect, useRef } from "react";
+import { useEffect, useRef, useState, useMemo  } from "react";
 import ContextMenu from "./ContextMenu";
 import { FaFolder } from "react-icons/fa";
 import { formatBytes, getFileIcon } from "../utility";
@@ -6,10 +6,10 @@ import { FaStar } from "react-icons/fa";
 import { MoreVertical } from "lucide-react";
 
 import { FileArchive, LayoutGrid, List } from "lucide-react";
-import { useState, useMemo } from "react";
+
 
 export default function FileGrid({
-  directoryName,
+  directoryName, 
 progressMap,
   handleContextMenu,
   BASE_URL,
@@ -31,8 +31,9 @@ progressMap,
   menuState,
   setMenuState,
 }) {
-  const menuRef = useRef(null);
+ 
 
+  const menuRef = useRef(null);
   const [view, setView] = useState("list"); 
 const [sortBy, setSortBy] = useState("name"); 
 const [sortOrder, setSortOrder] = useState("asc"); 
@@ -67,8 +68,8 @@ const [sortOrder, setSortOrder] = useState("asc");
       valA = new Date(a.updatedAt || a.createdAt);
       valB = new Date(b.updatedAt || b.createdAt);
     }
-    if (valA < valB) return sortOrder === "asc" ? -1 : 1;
-    if (valA > valB) return sortOrder === "asc" ? 1 : -1;
+    if (valA > valB) return sortOrder === "asc" ? -1 : 1;
+    if (valA < valB) return sortOrder === "asc" ? 1 : -1;
     return 0;
   });
 }

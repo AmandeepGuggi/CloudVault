@@ -99,6 +99,7 @@ export const createFile = async (req, res, next) => {
 
 export const readFiles = async(req, res) => {
   const { id } = req.params;
+  console.log(req.user);
   const fileData = await Files.findOne({_id: id , userId: req.user._id})
   if (!fileData) {
     return res.status(404).json({ error: "No such file exists!" });
@@ -187,7 +188,7 @@ export const toggleFileStar = async (req, res) => {
     return res.status(400).json({ error: "Invalid file id" });
   }
 
-  const file = await File.findOne({ _id: id, userId, isDeleted: false });
+  const file = await Files.findOne({ _id: id, userId, isDeleted: false });
 
   if (!file) {
     return res.status(404).json({ error: "File not found" });
@@ -204,12 +205,10 @@ export const toggleFileStar = async (req, res) => {
 
 export const getStarredFiles = async (req, res) => {
   const userId = req.user._id;
-
-  const files = await File.find({
+  const files = await Files.find({
     userId,
     isStarred: true,
     isDeleted: false,
   }).sort({ updatedAt: -1 });
-
   res.json(files);
 };

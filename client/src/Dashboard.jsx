@@ -3,7 +3,7 @@ import Sidebar from "./components/Sidebar";
 import Topbar from "./components/Topbar";
 import FileGrid from "./components/FileGrid";
 import NameModal from "./components/NameModal";
-import { useParams, useNavigate } from "react-router-dom";
+import { useParams, useNavigate,  } from "react-router-dom";
 import { BASE_URL, getUniquename } from "./utility/index.js";
 import BottomNav from "./components/BottomNav.jsx";
 
@@ -44,7 +44,6 @@ export default function App() {
 
   // Context menu
   const [activeContextMenu, setActiveContextMenu] = useState(null);
-  const [contextMenuPos, setContextMenuPos] = useState({ x: 0, y: 0 });
 
   /**
    * Utility: handle fetch errors
@@ -99,11 +98,8 @@ export default function App() {
     setActiveContextMenu(null);
     setActiveContextMenu(null);
     setContextMenu(null);
-  }, [dirId, authChecked]);
+  }, [dirId]);
   
-  /**
-   * Decide file icon
-   */
  
   /**
    * Click row to open directory or file
@@ -352,7 +348,6 @@ export default function App() {
       setActiveContextMenu(null);
     } else {
       setActiveContextMenu(id);
-      setContextMenuPos({ x: clickX - 110, y: clickY });
     }
   }
 
@@ -475,7 +470,7 @@ export default function App() {
               setShowRenameModal(false);
               setActiveContextMenu(null)
             }}
-          />
+          />    
         </main>
 
         <BottomNav 

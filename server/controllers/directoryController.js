@@ -13,8 +13,8 @@ if (!doesExist) {
   }
   const directoryData = await Directory.findOne({_id: id}).lean();
 
-  const files = await Files.find({parentDirId: id }).select("name userId parentDirId size updatedAt").lean()
-  const directories = await Directory.find({ parentDirId: id }).select("name userId parentDirId isDirectory").lean()
+  const files = await Files.find({parentDirId: id }).select("name userId parentDirId size updatedAt isStarred isDeleted").lean()
+  const directories = await Directory.find({ parentDirId: id }).select("name userId parentDirId isDirectory isStarred isDeleted").lean()
   
   return res.status(200).json({ ...directoryData, files: files.map((file) => ({...file, id: file._id})), directories: directories.map((dir) => ({...dir, id: dir._id}) ) })
 }
@@ -91,9 +91,6 @@ export const deleteDirectory = async (req, res, next) => {
   }
 }
 
-
-
-
 export const toggleDirectoryStar = async (req, res) => {
   const { id } = req.params;
   const userId = req.user._id;
@@ -117,14 +114,15 @@ export const toggleDirectoryStar = async (req, res) => {
   });
 };
 
+
+
 export const getStarredDirectories = async (req, res) => {
-  const userId = req.user._id;
+  const userId = req.user
 
   const dirs = await Directory.find({
     userId,
     isStarred: true,
     isDeleted: false,
   }).sort({ updatedAt: -1 });
-
   res.json(dirs);
 };

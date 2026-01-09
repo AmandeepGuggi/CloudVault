@@ -1,302 +1,1002 @@
-import { Eye, FolderOpen, Clock, Shield, Check, Sparkles, Search } from "lucide-react"
-import { useNavigate } from "react-router-dom"
+import { useEffect, useRef, useState, useMemo } from "react";
+import NameModal from "../components/NameModal.jsx";
+import { useParams, useNavigate,  } from "react-router-dom";
+import { getUniquename, BASE_URL, getFileIcon, formatBytes } from "../utility";
+import { Filter, FolderPlus, LayoutGrid, List, MoreVertical, Upload } from "lucide-react";
+import { FaFolder, FaStar } from "react-icons/fa";
+import ContextMenu from "../components/ContextMenu.jsx";
 
-function HomePage() {
-  const navigate = useNavigate()
-  return (
-    <div className="min-h-screen bg-gradient-to-b from-slate-50 to-white">
-      {/* Header */}
-      <header className="sticky top-0 z-50 border-b border-slate-200/60 bg-white/80 backdrop-blur-lg">
-        <div className="mx-auto max-w-7xl px-4 py-4 sm:px-6 lg:px-8">
-          <div className="flex items-center justify-between">
-            <div className="flex items-center gap-2.5">
-              <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-gradient-to-br from-blue-500 to-blue-600 shadow-lg shadow-blue-500/30">
-                <FolderOpen className="h-5 w-5 text-white" />
-              </div>
-              <span className="text-xl font-bold tracking-tight text-slate-900">Cloudex</span>
-            </div>
-            <nav className=" items-center gap- md:flex">
-              <button onClick={()=> {navigate("/register")}} className="px-4 py-2 border-2 border-blue-600 rounded text-sm font-medium hover:bg-blue-600 hover:text-white transition-colors">
-                Register
-              </button>
-              <button onClick={()=> {navigate("/login")}} className="rounded-lg px-4 py-2 text-sm font-medium text-slate-600 transition-colors hover:bg-slate-100 hover:text-slate-900">
-                Login
-              </button>
-            </nav>
-          </div>
-        </div>
-      </header>
 
-      {/* Hero Section */}
-      <section className="mx-auto max-w-6xl px-4 py-16 sm:px-6 sm:py-24 lg:px-8 lg:py-28">
-        <div className="text-center">
-          <div className="inline-flex items-center gap-2 rounded-full border border-blue-200 bg-blue-50 px-4 py-1.5 text-sm font-medium text-blue-700 shadow-sm">
-            <Sparkles className="h-4 w-4" />
-            <span>Now in early access</span>
-          </div>
-          <h1 className="mt-8 text-balance text-5xl font-bold tracking-tight text-slate-900 sm:text-6xl lg:text-7xl">
-            See exactly what you have,
-            <br />
-            <span className="bg-gradient-to-r from-blue-600 via-blue-500 to-cyan-500 bg-clip-text text-transparent">
-              and when it changed
-            </span>
-          </h1>
-          <p className="mx-auto mt-6 max-w-2xl text-pretty text-lg leading-relaxed text-slate-600 sm:text-xl">
-            Your files are secure and accessible from anywhere. No confusion about versions, no digging through chaos.
-          </p>
-          <div className="mt-10 flex flex-col items-center justify-center gap-4 sm:flex-row">
-            <button onClick={()=> {navigate("/register")}}  className="group inline-flex items-center rounded-xl bg-gradient-to-r from-blue-600 to-blue-500 px-8 py-4 text-base font-semibold text-white shadow-xl shadow-blue-500/30 transition-all hover:shadow-2xl hover:shadow-blue-500/40 hover:-translate-y-0.5">
-              Create free account
-              <span className="ml-2 transition-transform group-hover:translate-x-1">→</span>
-            </button>
-            <button className="inline-flex items-center rounded-xl border-2 border-slate-300 bg-white px-8 py-4 text-base font-semibold text-slate-700 transition-all hover:border-slate-400 hover:bg-slate-50">
-              See how it works
-            </button>
-          </div>
-        </div>
-      </section>
+export default function Home() {
+  const [view, setView] = useState("list"); 
+  const [sortBy, setSortBy] = useState("name"); 
+const [sortOrder, setSortOrder] = useState("asc"); 
+ const [showNewMenu, setShowNewMenu] = useState(false);
+  const [contextMenu, setContextMenu] = useState(null);
+  const [menuState, setMenuState] = useState(null);
+  const { dirId } = useParams();
+  const navigate = useNavigate();
 
-      {/* Pain Point Section */}
-      <section className="border-y border-slate-200 bg-gradient-to-b from-slate-100/50 to-slate-50 py-20 sm:py-24">
-        <div className="mx-auto max-w-6xl px-4 sm:px-6 lg:px-8">
-          <div className="text-center">
-            <h2 className="text-balance text-3xl font-bold text-slate-900 sm:text-4xl lg:text-5xl">
-              You shouldn't have to wonder
-            </h2>
-            <p className="mx-auto mt-4 max-w-2xl text-pretty text-base leading-relaxed text-slate-600 sm:text-lg">
-              "When did I last update this file?" "Which folder was that in?" "Is this the latest version?"
-            </p>
-          </div>
+ // Displayed directory name
+const [directoryName, setDirectoryName] = useState("My Files");
 
-          <div className="mt-16 grid gap-6 sm:grid-cols-2 lg:grid-cols-4">
-            {/* Card 1 */}
-            <div className="group relative overflow-hidden rounded-2xl border border-slate-200 bg-white p-6 shadow-sm transition-all duration-300 hover:shadow-xl hover:shadow-blue-500/10 hover:-translate-y-1">
-              <div className="absolute inset-0 bg-gradient-to-br from-orange-50 to-transparent opacity-0 transition-opacity duration-300 group-hover:opacity-100" />
-              <div className="relative">
-                <div className="flex h-14 w-14 items-center justify-center rounded-xl bg-gradient-to-br from-orange-400 to-orange-500 shadow-lg shadow-orange-500/30 transition-transform duration-300 group-hover:scale-110">
-                  <Clock className="h-7 w-7 text-white" />
-                </div>
-                <h3 className="mt-5 text-lg font-bold text-slate-900">Lost track of changes</h3>
-                <p className="mt-2.5 text-sm leading-relaxed text-slate-600">
-                  Not knowing when files were modified creates uncertainty and wasted time.
-                </p>
-              </div>
-            </div>
+ // Lists of items
+  const [directoriesList, setDirectoriesList] = useState([]);
+  const [filesList, setFilesList] = useState([]);
 
-            {/* Card 2 */}
-            <div className="group relative overflow-hidden rounded-2xl border border-slate-200 bg-white p-6 shadow-sm transition-all duration-300 hover:shadow-xl hover:shadow-blue-500/10 hover:-translate-y-1">
-              <div className="absolute inset-0 bg-gradient-to-br from-purple-50 to-transparent opacity-0 transition-opacity duration-300 group-hover:opacity-100" />
-              <div className="relative">
-                <div className="flex h-14 w-14 items-center justify-center rounded-xl bg-gradient-to-br from-purple-400 to-purple-500 shadow-lg shadow-purple-500/30 transition-transform duration-300 group-hover:scale-110">
-                  <FolderOpen className="h-7 w-7 text-white" />
-                </div>
-                <h3 className="mt-5 text-lg font-bold text-slate-900">Disorganized storage</h3>
-                <p className="mt-2.5 text-sm leading-relaxed text-slate-600">
-                  Files scattered everywhere. No clear structure. Finding anything takes too long.
-                </p>
-              </div>
-            </div>
+    // Error state
+  const [errorMessage, setErrorMessage] = useState("");
 
-            {/* Card 3 */}
-            <div className="group relative overflow-hidden rounded-2xl border border-slate-200 bg-white p-6 shadow-sm transition-all duration-300 hover:shadow-xl hover:shadow-blue-500/10 hover:-translate-y-1">
-              <div className="absolute inset-0 bg-gradient-to-br from-blue-50 to-transparent opacity-0 transition-opacity duration-300 group-hover:opacity-100" />
-              <div className="relative">
-                <div className="flex h-14 w-14 items-center justify-center rounded-xl bg-gradient-to-br from-blue-400 to-blue-500 shadow-lg shadow-blue-500/30 transition-transform duration-300 group-hover:scale-110">
-                  <Eye className="h-7 w-7 text-white" />
-                </div>
-                <h3 className="mt-5 text-lg font-bold text-slate-900">No visibility</h3>
-                <p className="mt-2.5 text-sm leading-relaxed text-slate-600">
-                  You can't see what's happening with your files at a glance. Everything feels opaque.
-                </p>
-              </div>
-            </div>
+ //Modal states
+  const [showCreateFolder, setShowCreateFolder] = useState(false);
+  const [newDirname, setNewDirname] = useState("New Folder");
+  const [showRenameModal, setShowRenameModal] = useState(false);
+  const [renameType, setRenameType] = useState(null); // "directory" or "file"
+  const [renameId, setRenameId] = useState(null);
+  const [renameValue, setRenameValue] = useState("");
 
-            {/* Card 4 - NEW */}
-            <div className="group relative overflow-hidden rounded-2xl border border-slate-200 bg-white p-6 shadow-sm transition-all duration-300 hover:shadow-xl hover:shadow-blue-500/10 hover:-translate-y-1">
-              <div className="absolute inset-0 bg-gradient-to-br from-rose-50 to-transparent opacity-0 transition-opacity duration-300 group-hover:opacity-100" />
-              <div className="relative">
-                <div className="flex h-14 w-14 items-center justify-center rounded-xl bg-gradient-to-br from-rose-400 to-rose-500 shadow-lg shadow-rose-500/30 transition-transform duration-300 group-hover:scale-110">
-                  <Search className="h-7 w-7 text-white" />
-                </div>
-                <h3 className="mt-5 text-lg font-bold text-slate-900">Endless searching</h3>
-                <p className="mt-2.5 text-sm leading-relaxed text-slate-600">
-                  Spending minutes hunting for a file you know exists somewhere. Frustrating every time.
-                </p>
-              </div>
-            </div>
-          </div>
-        </div>
-      </section>
+   // Uploading states
+  const fileInputRef = useRef(null);
+  const menuRef = useRef(null);
+  const [uploadQueue, setUploadQueue] = useState([]); // queued items to upload
+  const [uploadXhrMap, setUploadXhrMap] = useState({}); // track XHR per item
+  const [progressMap, setProgressMap] = useState({}); // track progress per item
+  const [isUploading, setIsUploading] = useState(false); // indicates if an upload is in progress
 
-      {/* Solution Section */}
-      <section className="py-20 sm:py-24">
-        <div className="mx-auto max-w-6xl px-4 sm:px-6 lg:px-8">
-          <div className="text-center">
-            <h2 className="text-balance text-3xl font-bold text-slate-900 sm:text-4xl lg:text-5xl">
-              A clearer way to store files
-            </h2>
-            <p className="mx-auto mt-4 max-w-2xl text-pretty text-base leading-relaxed text-slate-600 sm:text-lg">
-              ClearVault shows you exactly when each file was last modified, keeps your folders organized, and gives you
-              simple access from any device.
-            </p>
-          </div>
+  // Context menu
+  const [activeContextMenu, setActiveContextMenu] = useState(null);
+   const [open, setOpen] = useState(false);
+  const dropdownRef = useRef(null);
 
-          <div className="mt-16 space-y-6">
-            <div className="group rounded-2xl border border-slate-200 bg-white p-8 shadow-sm transition-all hover:border-blue-200 hover:shadow-2xl hover:shadow-blue-500/10">
-              <div className="flex flex-col gap-6 sm:flex-row sm:items-start sm:gap-8">
-                <div className="flex h-16 w-16 shrink-0 items-center justify-center rounded-2xl bg-gradient-to-br from-blue-500 to-blue-600 shadow-xl shadow-blue-500/30 transition-transform duration-300 group-hover:scale-105">
-                  <Clock className="h-8 w-8 text-white" />
-                </div>
-                <div className="flex-1">
-                  <h3 className="text-xl font-bold text-slate-900">Last modified, always visible</h3>
-                  <p className="mt-3 leading-relaxed text-slate-600">
-                    Every file shows when it was last changed. No more guessing. You know if you're looking at the
-                    current version.
-                  </p>
-                </div>
-              </div>
-            </div>
+   const allItems = [...directoriesList, ...filesList];
+  const selectedItem = menuState
+    ? allItems.find((x) => x.id === menuState.id)
+    : null;
 
-            <div className="group rounded-2xl border border-slate-200 bg-white p-8 shadow-sm transition-all hover:border-blue-200 hover:shadow-2xl hover:shadow-blue-500/10">
-              <div className="flex flex-col gap-6 sm:flex-row sm:items-start sm:gap-8">
-                <div className="flex h-16 w-16 shrink-0 items-center justify-center rounded-2xl bg-gradient-to-br from-blue-500 to-blue-600 shadow-xl shadow-blue-500/30 transition-transform duration-300 group-hover:scale-105">
-                  <FolderOpen className="h-8 w-8 text-white" />
-                </div>
-                <div className="flex-1">
-                  <h3 className="text-xl font-bold text-slate-900">Organized folders that make sense</h3>
-                  <p className="mt-3 leading-relaxed text-slate-600">
-                    Create folders that reflect how you think. Name them clearly. Find what you need without searching
-                    through everything.
-                  </p>
-                </div>
-              </div>
-            </div>
+     useEffect(() => {
+    function handleClickOutside(e) {
+      if (dropdownRef.current && !dropdownRef.current.contains(e.target)) {
+        setOpen(false);
+      }
+    }
 
-            <div className="group rounded-2xl border border-slate-200 bg-white p-8 shadow-sm transition-all hover:border-blue-200 hover:shadow-2xl hover:shadow-blue-500/10">
-              <div className="flex flex-col gap-6 sm:flex-row sm:items-start sm:gap-8">
-                <div className="flex h-16 w-16 shrink-0 items-center justify-center rounded-2xl bg-gradient-to-br from-blue-500 to-blue-600 shadow-xl shadow-blue-500/30 transition-transform duration-300 group-hover:scale-105">
-                  <Eye className="h-8 w-8 text-white" />
-                </div>
-                <div className="flex-1">
-                  <h3 className="text-xl font-bold text-slate-900">Access from anywhere</h3>
-                  <p className="mt-3 leading-relaxed text-slate-600">
-                    Your files are available on any device. Upload from your phone, access from your laptop. It just
-                    works.
-                  </p>
-                </div>
-              </div>
-            </div>
-          </div>
-        </div>
-      </section>
+    document.addEventListener("mousedown", handleClickOutside);
+    return () =>
+      document.removeEventListener("mousedown", handleClickOutside);
+  }, []);
 
-      {/* Trust Section */}
-      <section
-        id="security"
-        className="border-y border-slate-200 bg-gradient-to-b from-blue-50 via-blue-50/80 to-white py-20 sm:py-24"
-      >
-        <div className="mx-auto max-w-6xl px-4 sm:px-6 lg:px-8">
-          <div className="text-center">
-            <div className="mx-auto flex h-20 w-20 items-center justify-center rounded-2xl bg-gradient-to-br from-blue-500 to-blue-600 shadow-2xl shadow-blue-500/40">
-              <Shield className="h-10 w-10 text-white" />
-            </div>
-            <h2 className="mt-6 text-balance text-3xl font-bold text-slate-900 sm:text-4xl lg:text-5xl">
-              Security you can trust
-            </h2>
-            <p className="mx-auto mt-4 max-w-2xl text-pretty text-base leading-relaxed text-slate-600 sm:text-lg">
-              Your files are encrypted and protected. We built this with security as the foundation, not an
-              afterthought.
-            </p>
-          </div>
+  //fetch directory items
+   async function getDirectoryItems() {
+      setErrorMessage(""); // clear any existing error
+      try {
+        const response = await fetch(`${BASE_URL}/directory/${dirId || ""}`, {
+          credentials: "include",
+        });
+  
+        if (response.status === 401) {
+          // navigate("/login");
+          setErrorMessage("Not authenticated yet");
+          return;
+        }
+  
+        await handleFetchErrors(response);
+        const data = await response.json();
+  
+        // Set directory name
+        setDirectoryName(dirId ? data.name : "All Files");
+  
+        // Reverse directories and files so new items show on top
+        setDirectoriesList([...data.directories].reverse());
+        setFilesList([...data.files].reverse());
+      } catch (error) {
+        setErrorMessage(error.message);
+      }
+    }
+   useEffect(() => {
+  const close = () => setMenuState(null);
+  window.addEventListener("scroll", close, true);
+  return () => window.removeEventListener("scroll", close, true);
+}, []);
 
-          <div className="mt-16 grid gap-8 sm:grid-cols-2 lg:grid-cols-3">
-            <div className="flex flex-col items-center rounded-2xl border border-blue-100 bg-white p-8 text-center shadow-sm transition-all hover:shadow-lg">
-              <div className="flex h-14 w-14 items-center justify-center rounded-xl bg-blue-100 ring-4 ring-blue-50">
-                <Check className="h-7 w-7 text-blue-600" />
-              </div>
-              <h3 className="mt-5 text-lg font-bold text-slate-900">Secure login</h3>
-              <p className="mt-2.5 text-sm leading-relaxed text-slate-600">
-                Your account is protected with modern authentication.
-              </p>
-            </div>
+    useEffect(() => {
+        getDirectoryItems();
+        // Reset context menu
+        setActiveContextMenu(null);
+        setActiveContextMenu(null);
+        setContextMenu(null);
+      }, [dirId]);
+      
+     
+      /**
+       * Click row to open directory or file
+       */
+      function handleRowClick(type, id) {
+        if (type === "directory") {
+          navigate(`/app/${id}`);
+        } else {
+          window.location.href = `${BASE_URL}/file/${id}`;
+        }
+      }
+    
+      /**
+       * Select multiple files
+       */
+      function handleFileSelect(e) {
+        const selectedFiles = Array.from(e.target.files);
+        if (selectedFiles.length === 0) return;
+    
+        // Build a list of "temp" items
+        const newItems = selectedFiles.map((file) => {
+          const tempId = `temp-${Date.now()}-${Math.random()}`;
+          return {
+            file,
+            name: file.name,
+            size: file.size,
+            id: tempId,
+            isUploading: false,
+          };
+        });
+    
+        // Put them at the top of the existing list
+        setFilesList((prev) => [...newItems, ...prev]);
+    
+        // Initialize progress=0 for each
+        newItems.forEach((item) => {
+          setProgressMap((prev) => ({ ...prev, [item.id]: 0 }));
+        });
+    
+        // Add them to the uploadQueue
+        setUploadQueue((prev) => [...prev, ...newItems]);
+    
+        // Clear file input so the same file can be chosen again if needed
+        e.target.value = "";
+    
+        // Start uploading queue if not already uploading
+        if (!isUploading) {
+          setIsUploading(true);
+          // begin the queue process
+          processUploadQueue([...uploadQueue, ...newItems.reverse()]);
+        }
+      }
+    
+      /**
+       * Upload items in queue one by one
+       */
+      function processUploadQueue(queue) {
+        if (queue.length === 0) {
+          // No more items to upload
+          setIsUploading(false);
+          setUploadQueue([]);
+          setTimeout(() => {
+            getDirectoryItems();
+          }, 1000);
+          return;
+        }
+    
+        const [currentItem, ...restQueue] = queue;
+    
+        // Mark it as isUploading: true
+        setFilesList((prev) =>
+          prev.map((f) =>
+            f.id === currentItem.id ? { ...f, isUploading: true } : f
+          )
+        );
+    
+        // Start upload
+        const xhr = new XMLHttpRequest();
+        xhr.open("POST", `${BASE_URL}/file/${dirId || ""}`, true);
+        xhr.withCredentials = true;
+    
+        xhr.setRequestHeader("filename", currentItem.name);
+    
+    
+    
+        xhr.upload.addEventListener("progress", (evt) => {
+          if (evt.lengthComputable) {
+            const progress = (evt.loaded / evt.total) * 100;
+            setProgressMap((prev) => ({ ...prev, [currentItem.id]: progress }));
+          }
+        });
+    
+        xhr.addEventListener("load", () => {
+          processUploadQueue(restQueue);
+        });
+    
+        // If user cancels, remove from the queue
+        setUploadXhrMap((prev) => ({ ...prev, [currentItem.id]: xhr }));
+    
+        xhr.send(currentItem.file);
+      
+      }
+    
+      /**
+       * Cancel an in-progress upload
+       */
+      function handleCancelUpload(tempId) {
+        const xhr = uploadXhrMap[tempId];
+        if (xhr) {
+          xhr.abort();
+        }
+        // Remove it from queue if still there
+        setUploadQueue((prev) => prev.filter((item) => item.id !== tempId));
+    
+        // Remove from filesList
+        setFilesList((prev) => prev.filter((f) => f.id !== tempId));
+    
+        // Remove from progressMap
+        setProgressMap((prev) => {
+          const { [tempId]: _, ...rest } = prev;
+          return rest;
+        });
+    
+        // Remove from Xhr map
+        setUploadXhrMap((prev) => {
+          const copy = { ...prev };
+          delete copy[tempId];
+          return copy;
+        });
+      }
+    
+      /**
+       * Delete a file/directory
+       */
+      async function handleDeleteFile(id) {
+        setErrorMessage("");
+        try {
+          const response = await fetch(`${BASE_URL}/file/${id}`, {
+            method: "DELETE",
+            credentials: "include",
+          });
+          await handleFetchErrors(response);
+          getDirectoryItems();
+        } catch (error) {
+          setErrorMessage(error.message);
+        }
+      }
+    
+      async function handleDeleteDirectory(id) {
+        setErrorMessage("");
+        try {
+          const response = await fetch(`${BASE_URL}/directory/${id}`, {
+            method: "DELETE",
+            credentials: "include",
+          });
+          await handleFetchErrors(response);
+          getDirectoryItems();
+        } catch (error) {
+          setErrorMessage(error.message);
+        }
+      }
 
-            <div className="flex flex-col items-center rounded-2xl border border-blue-100 bg-white p-8 text-center shadow-sm transition-all hover:shadow-lg">
-              <div className="flex h-14 w-14 items-center justify-center rounded-xl bg-blue-100 ring-4 ring-blue-50">
-                <Check className="h-7 w-7 text-blue-600" />
-              </div>
-              <h3 className="mt-5 text-lg font-bold text-slate-900">Encrypted storage</h3>
-              <p className="mt-2.5 text-sm leading-relaxed text-slate-600">
-                Files are encrypted at rest and in transit.
-              </p>
-            </div>
+     /**
+   * Utility: handle fetch errors
+   */
+  async function handleFetchErrors(response) {
+    if (!response.ok) {
+      let errMsg = `Request failed with status ${response.status}`;
+      try {
+        const data = await response.json();
+        if (data.error) errMsg = data.error;
+      } catch (_) {
+        // If JSON parsing fails, default errMsg stays
+      }
+      throw new Error(errMsg);
+    }
+    return response;
+  }
 
-            <div className="flex flex-col items-center rounded-2xl border border-blue-100 bg-white p-8 text-center shadow-sm transition-all hover:shadow-lg">
-              <div className="flex h-14 w-14 items-center justify-center rounded-xl bg-blue-100 ring-4 ring-blue-50">
-                <Check className="h-7 w-7 text-blue-600" />
-              </div>
-              <h3 className="mt-5 text-lg font-bold text-slate-900">Access control</h3>
-              <p className="mt-2.5 text-sm leading-relaxed text-slate-600">
-                You control who can see your files. Nobody else.
-              </p>
-            </div>
-          </div>
-        </div>
-      </section>
 
-      {/* CTA Section */}
-      <section className="py-20 sm:py-24">
-        <div className="mx-auto max-w-3xl px-4 text-center sm:px-6 lg:px-8">
-          <h2 className="text-balance text-4xl font-bold text-slate-900 sm:text-5xl">
-            Start organizing your files today
-          </h2>
-          <p className="mt-5 text-pretty text-lg leading-relaxed text-slate-600">
-            Free to start. No credit card needed.
-          </p>
-          <div className="mt-10">
-            <button onClick={()=> {navigate("/register")}} className="group inline-flex items-center rounded-xl bg-gradient-to-r from-blue-600 to-blue-500 px-10 py-4 text-lg font-semibold text-white shadow-xl shadow-blue-500/30 transition-all hover:shadow-2xl hover:shadow-blue-500/40 hover:-translate-y-0.5">
-              Create free account
-              <span className="ml-2 transition-transform group-hover:translate-x-1">→</span>
-            </button>
-          </div>
-        </div>
-      </section>
+    /**
+     * Create a directory
+     */
+    async function handleCreateDirectory(e) {
+      e.preventDefault();
+      const base = newDirname.trim();
+      let existingNames= directoriesList.map((f) => f.name)
+      const finalName = existingNames.length
+        ? getUniquename(base, existingNames)
+        : base;
+  
+      setErrorMessage("");
+      try {
+        const response = await fetch(`${BASE_URL}/directory/${dirId || ""}`, {
+          method: "POST",
+          headers: {
+            // dirname: newDirname,
+            dirname: finalName,
+          },
+          credentials: "include",
+        });
+        await handleFetchErrors(response);
+        setNewDirname("New Folder");
+        // setShowCreateDirModal(false);
+        setShowCreateFolder(false);
+        getDirectoryItems();
+      } catch (error) {
+        setErrorMessage(error.message);
+      }
+    }
+  
+    /**
+     * Rename
+     */
+    function openRenameModal(type, id, currentName) {
+      setRenameType(type);
+      setRenameId(id);
+      setRenameValue(currentName);
+      setShowRenameModal(true);
+    }
+  
+    async function handleRenameSubmit(e) {
+      e.preventDefault();
+      setErrorMessage("");
+      try {
+        const url =
+          renameType === "file"
+            ? `${BASE_URL}/file/${renameId}`
+            : `${BASE_URL}/directory/${renameId}`;
+        const response = await fetch(url, {
+          method: "PATCH",
+          headers: {
+            "Content-Type": "application/json",
+          },
+          body: JSON.stringify(
+            renameType === "file"
+              ? { newFilename: renameValue }
+              : { newDirName: renameValue }
+          ),
+          credentials: "include",
+        });
+        await handleFetchErrors(response);
+  
+        setShowRenameModal(false);
+        setRenameValue("");
+        setRenameType(null);
+        setRenameId(null);
+        getDirectoryItems();
+      } catch (error) {
+        setErrorMessage(error.message);
+      }
+    }
+  
+    /**
+     * Context Menu
+     */
+    function handleContextMenu(e, id) {
+      e.stopPropagation();
+      e.preventDefault();
+      const clickX = e.clientX;
+      const clickY = e.clientY;
+  
+      if (activeContextMenu === id) {
+        setActiveContextMenu(null);
+      } else {
+        setActiveContextMenu(id);
+      }
+    }
 
-      {/* Early Access Note */}
-      <section className="border-t border-slate-200 bg-slate-50 py-12">
-        <div className="mx-auto max-w-3xl px-4 text-center sm:px-6 lg:px-8">
-          <p className="text-sm leading-relaxed text-slate-600">
-            ClearVault is in early access. We're actively improving based on feedback from users like you. If something
-            doesn't work as expected, we want to hear about it.
-          </p>
-        </div>
-      </section>
+      function openRename(type, id, currentName) {
+        setRenameType(type);
+        setRenameId(id);
+        setRenameValue(currentName);
+        setShowRenameModal(true);
+      }
+      function closeRename() {
+        setRenameType(null);
+        setRenameId("");
+        setRenameValue("");
+        setShowRenameModal(false);
+      }
+    
+    
+      async function handleRenameSubmit(e) {
+        e.preventDefault();
+        setErrorMessage("");
+        try {
+          const url =
+            renameType === "file"
+              ? `${BASE_URL}/file/${renameId}`
+              : `${BASE_URL}/directory/${renameId}`;
+          const response = await fetch(url, {
+            method: "PATCH",
+            headers: {
+              "Content-Type": "application/json",
+            },
+            body: JSON.stringify(
+              renameType === "file"
+                ? { newFilename: renameValue }
+                : { newDirName: renameValue }
+            ),
+            credentials: "include",
+          });
+          await handleFetchErrors(response);
+    
+          setShowRenameModal(false);
+          setRenameValue("");
+          setRenameType(null);
+          setRenameId(null);
+          getDirectoryItems();
+        } catch (error) {
+          setErrorMessage(error.message);
+        }
+      }
+  
+    useEffect(() => {
+      function handleDocumentClick() {
+        setActiveContextMenu(null);
+      }
+      document.addEventListener("click", handleDocumentClick);
+      return () => document.removeEventListener("click", handleDocumentClick);
+    }, []);
+  
+      function sortItems(items, sortBy, sortOrder) {
+    return [...items].sort((a, b) => {
+      let valA, valB;
+  
+      if (sortBy === "name") {
+        valA = a.name.toLowerCase();
+        valB = b.name.toLowerCase();
+      }
+  
+      if (sortBy === "size") {
+        valA = a.size ?? 0;
+        valB = b.size ?? 0;
+      }
+  
+      if (sortBy === "modified") {
+        valA = new Date(a.updatedAt || a.createdAt);
+        valB = new Date(b.updatedAt || b.createdAt);
+      }
+      if (valA > valB) return sortOrder === "asc" ? 1 : -1;
+if (valA < valB) return sortOrder === "asc" ? -1 : 1;
+return 0;
 
-      {/* Footer */}
-      <footer className="border-t border-slate-200 py-10">
-        <div className="mx-auto max-w-6xl px-4 sm:px-6 lg:px-8">
-          <div className="flex flex-col items-center justify-between gap-6 sm:flex-row">
-            <div className="flex items-center gap-2.5">
-              <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-gradient-to-br from-blue-500 to-blue-600">
-                <FolderOpen className="h-4 w-4 text-white" />
-              </div>
-              <span className="text-sm font-semibold text-slate-600">ClearVault</span>
-            </div>
-            <div className="flex gap-8">
-              <a href="#privacy" className="text-sm font-medium text-slate-600 transition-colors hover:text-slate-900">
-                Privacy
-              </a>
-              <a href="#terms" className="text-sm font-medium text-slate-600 transition-colors hover:text-slate-900">
-                Terms
-              </a>
-              <a href="#contact" className="text-sm font-medium text-slate-600 transition-colors hover:text-slate-900">
-                Contact
-              </a>
-            </div>
-          </div>
-        </div>
-      </footer>
-    </div>
-  )
+    });
+  }
+  
+  const sortedItems = useMemo(() => {
+    const sortedFolders = sortItems(directoriesList, sortBy, sortOrder);
+    const sortedFiles = sortItems(filesList, sortBy, sortOrder);
+  
+    return [...sortedFolders, ...sortedFiles];
+  }, [directoriesList, filesList, sortBy, sortOrder]);
+  
+  async function toggleStar(id, type) {
+    console.log(id, type);
+  const url =
+    type === true
+      ? `${BASE_URL}/directory/${id}/starred`
+      : `${BASE_URL}/file/${id}/starred`;
+
+  try {
+    const res = await fetch(url, {
+      method: "PATCH",
+      credentials: "include",
+    });
+
+    const data = await res.json();
+    console.log({data});
+    if (type === undefined) {
+      setFilesList(prev =>
+        prev.map(f =>
+          f.id === id ? { ...f, isStarred: data.isStarred } : f
+        )
+      );
+    } else {
+      setDirectoriesList(prev =>
+        prev.map(d =>
+          d.id === id ? { ...d, isStarred: data.isStarred } : d
+        )
+      );
+    }
+  } catch (err) {
+    console.error("Failed to toggle star", err);
+  }
 }
 
-export default HomePage
+  
+ 
+  return (
+    <>
+        <div className="md:sticky md:-top-7 z-10 bg-primary md:bg-white ">
+        <div className="flex flex-col md:flex-row md:items-center justify-between py-2 border-b mb-6 border-gray-300">
+
+  <div className=" hidden md:flex items-center gap-3">
+  <button
+    onClick={()=> {
+       setShowNewMenu(false);
+      setShowCreateFolder(true);
+    }}
+    className="flex items-center gap-2 px-4 py-2 text-sm font-medium
+               rounded-md border border-gray-300 text-gray-700 hover:bg-gray-100"
+  >
+    <FolderPlus size={16} />
+    Create Folder
+  </button>
+
+  <button
+    onClick={() => {
+      fileInputRef.current.click();
+    }}
+    className="flex items-center gap-2 px-4 py-2 text-sm font-medium
+               rounded-md bg-blue-primary text-white hover:bg-blue-700"
+  >
+    <Upload size={16} />
+    Upload File
+  </button>
+  <input
+          ref={fileInputRef}
+          id="file-upload"
+          type="file"
+          style={{ display: "none" }}
+          multiple
+          onChange={handleFileSelect}
+        />
+</div>
+
+
+<div className="md:hidden w-full px-3 py-2">
+  <div className="flex items-center gap-2 rounded-lg border border-gray-300 bg-white px-3 py-2 focus-within:border-blue-500 focus-within:ring-2 focus-within:ring-blue-500/20 transition">
+    
+    {/* Search Icon */}
+    <svg
+      xmlns="http://www.w3.org/2000/svg"
+      className="h-4 w-4 text-gray-400"
+      fill="none"
+      viewBox="0 0 24 24"
+      stroke="currentColor"
+    >
+      <path
+        strokeLinecap="round"
+        strokeLinejoin="round"
+        strokeWidth={2}
+        d="M21 21l-4.35-4.35m0 0A7.5 7.5 0 104.5 4.5a7.5 7.5 0 0012.15 12.15z"
+      />
+    </svg>
+
+    {/* Searchbar for mobile screens */}
+    <input
+      type="text"
+      placeholder="Search files or folders"
+      className="w-full bg-transparent text-sm text-gray-800 placeholder-gray-400 focus:outline-none"
+    />
+  </div>
+</div>
+
+
+  <div className="flex justify-between md:justify-baseline px-3 py-2 items-center gap-3">
+    {/* View toggle */}
+      <div className=" md:hidden flex items-center gap-3">
+  <button
+    onClick={()=> {
+       setShowNewMenu(false);
+      setShowCreateFolder(true);
+    }}
+    className="flex items-center gap-2 px-4 py-2 text-sm font-medium
+               rounded-md border border-gray-300 text-gray-700 hover:bg-gray-100"
+  >
+    <FolderPlus size={16} />
+    Create Folder
+  </button>
+
+  <button
+    onClick={() => {
+      fileInputRef.current.click();
+    }}
+    className="flex items-center gap-2 px-4 py-2 text-sm font-medium
+               rounded-md bg-blue-primary text-white hover:bg-blue-700"
+  >
+    <Upload size={16} />
+    Upload File
+  </button>
+  <input
+          ref={fileInputRef}
+          id="file-upload"
+          type="file"
+          style={{ display: "none" }}
+          multiple
+          onChange={handleFileSelect}
+        />
+</div>
+  <div className="flex items-center gap-3"> <div className="relative md:hidden" ref={dropdownRef}>
+      {/* Filter Button */}
+      <button
+        onClick={() => setOpen(prev => !prev)}
+        className="flex items-center justify-center
+                   text-sm border border-gray-300 rounded shadow-sm
+                   w-8 h-8 hover:bg-gray-100 transition"
+      >
+        <Filter size={16} />
+      </button>
+
+      {/* Dropdown */}
+      {open && (
+        <div className="absolute right-0 mt-2 w-40 bg-white border border-gray-200 rounded-md shadow-lg z-50">
+          <DropdownItem
+            label="Name"
+            active={sortBy === "name"}
+            onClick={() => {
+              setSortBy("name");
+              setOpen(false);
+            }}
+          />
+          <DropdownItem
+            label="Last modified"
+            active={sortBy === "modified"}
+            onClick={() => {
+              setSortBy("modified");
+              setOpen(false);
+            }}
+          />
+          <DropdownItem
+            label="File size"
+            active={sortBy === "size"}
+            onClick={() => {
+              setSortBy("size");
+              setOpen(false);
+            }}
+          />
+        </div>
+      )}
+    </div>
+    <div className="flex bg-gray-100 rounded-md p-1">
+      <button
+        onClick={() => setView("grid")}
+        className={`p-2 rounded ${
+          view === "grid" ? "bg-blue-primary text-white shadow" : ""
+        }`}
+      >
+        <LayoutGrid size={18} />
+      </button>
+      <button
+        onClick={() => setView("list")}
+        className={`p-2 rounded ${
+          view === "list" ? "bg-blue-primary text-white shadow" : ""
+        }`}
+      >
+        <List size={18} />
+      </button>
+    </div>
+    </div>
+
+    {/* Sort */}
+   
+
+ 
+    <select
+      value={sortBy}
+      onChange={(e) => setSortBy(e.target.value)}
+      className="hidden md:flex border-gray-400 outline-0 border rounded px-2 py-2 text-sm"
+    >
+      
+      <option value="name">Name</option>
+      <option value="modified">Last modified</option>
+      <option value="size">File size</option>
+    </select>
+  </div>
+</div>
+    </div>
+
+      <div className="px-3 py-">
+    <h1 className="text-2xl font-medium text-gray-700">
+      {directoryName}
+    </h1>
+    <p className="text-sm text-gray-400">
+      {sortedItems.length} items
+    </p>
+  </div>
+
+  {view === "list" && (
+  <div className="grid grid-cols-1 gap-4 pb-20 md:pb-2">
+    {sortedItems.map((item) => {
+      const isUploadingItem = 
+  !item.isDirectory && item.id.startsWith("temp-");
+const uploadProgress = progressMap[item.id] || 0;
+      return (
+      
+    <div
+  key={item.id}
+  className="border group border-gray-300 rounded-lg p-4 cursor-pointer hover:bg-gray-50"
+  onClick={() =>
+    !(activeContextMenu || isUploading) &&
+    handleRowClick(item.isDirectory ? "directory" : "file", item.id)
+  }
+  onContextMenu={(e) => {
+    if (isUploadingItem) return; 
+    e.preventDefault();
+    handleContextMenu(e, item.id);
+    const menuWidth = 180;
+  const menuHeight = 220;
+
+  const viewportWidth = window.innerWidth;
+  const viewportHeight = window.innerHeight;
+
+  let x = e.clientX;
+  let y = e.clientY;
+
+  // Prevent overflow on right
+  if (x + menuWidth > viewportWidth) {
+    x = viewportWidth - menuWidth - 8;
+  }
+
+  // Prevent overflow at bottom
+  if (y + menuHeight > viewportHeight) {
+    y = viewportHeight - menuHeight - 8;
+  }
+
+  setMenuState({
+    id: item.id,
+    x,
+    y,
+    type: "folder",
+  });
+  }}
+>
+  {/* Top row */}
+  <div className="flex justify-between items-center gap-3">
+    <div className="flex items-center gap-2 truncate">
+      {item.size === undefined ? (
+        <FaFolder className="text-4xl text-blue-400 shrink-0" />
+      ) : (
+        <img src={getFileIcon(item.name)} className="w-10 shrink-0" />
+      )}
+
+      <div className="flex flex-col truncate">
+        <p className="text-sm truncate">{item.name}</p>
+
+        {item.size !== undefined && !isUploadingItem && (
+          <p className="text-gray-400 text-sm">
+            {formatBytes(item.size)}
+          </p>
+        )}
+      </div>
+    </div>
+
+    <div className="flex items-center gap-2">
+      <FaStar onClick={(e) => {
+        e.stopPropagation()
+        toggleStar(item.id, item.isDirectory)
+        }} className={` ${item.isStarred ? "text-yellow-400" : "text-gray-400  opacity-0 group-hover:opacity-100"} transition-opacity`} />
+        
+      <MoreVertical onClick={(e) => {
+    if (isUploadingItem) return; 
+    e.preventDefault();
+    handleContextMenu(e, item.id);
+    const menuWidth = 180;
+  const menuHeight = 220;
+
+  const viewportWidth = window.innerWidth;
+  const viewportHeight = window.innerHeight;
+
+  let x = e.clientX;
+  let y = e.clientY;
+
+  // Prevent overflow on right
+  if (x + menuWidth > viewportWidth) {
+    x = viewportWidth - menuWidth - 8;
+  }
+
+  // Prevent overflow at bottom
+  if (y + menuHeight > viewportHeight) {
+    y = viewportHeight - menuHeight - 8;
+  }
+
+  setMenuState({
+    id: item.id,
+    x,
+    y,
+    type: "folder",
+  });
+  }} className="text-gray-400" />
+    </div>
+  </div>
+
+  {/* Uploading row (INLINE, BELOW NAME) */}
+  {isUploadingItem && (
+    <div className="mt-3">
+      <div className="flex items-center gap-2">
+        {/* Progress bar */}
+        <div className="flex-1 h-2 bg-gray-200 rounded overflow-hidden">
+          <div
+            className={`h-full transition-all ${
+              uploadProgress === 100 ? "bg-green-600" : "bg-blue-600"
+            }`}
+            style={{ width: `${uploadProgress}%` }}
+          />
+        </div>
+
+        {/* Cancel button */}
+        <button
+          onClick={(e) => {
+            e.stopPropagation();
+            handleCancelUpload(item.id);
+          }}
+          className="text-gray-500 hover:text-red-600 text-sm"
+        >
+          ✕
+        </button>
+      </div>
+
+      <p className="text-xs text-gray-500 mt-1">
+        Uploading… {Math.floor(uploadProgress)}%
+      </p>
+    </div>
+  )}
+</div>
+
+     
+    )})}
+  </div>
+)}
+
+{view === "grid" && (
+  <div className="grid grid-cols-2 pb-20 md:pb-2 sm:grid-cols-3 md:grid-cols-3 gap-4">
+    {sortedItems.map((item) => {
+      const isUploadingItem = 
+  !item.isDirectory && item.id.startsWith("temp-");
+const uploadProgress = progressMap[item.id] || 0;
+      return (
+      
+    <div
+  key={item.id}
+  className="border group border-gray-300 rounded-lg p-4 cursor-pointer hover:bg-gray-50"
+  onClick={() =>
+    !(activeContextMenu || isUploading) &&
+    handleRowClick(item.isDirectory ? "directory" : "file", item.id)
+  }
+  onContextMenu={(e) => {
+    if (isUploadingItem) return; 
+    e.preventDefault();
+    handleContextMenu(e, item.id);
+    const menuWidth = 180;
+  const menuHeight = 220;
+
+  const viewportWidth = window.innerWidth;
+  const viewportHeight = window.innerHeight;
+
+  let x = e.clientX;
+  let y = e.clientY;
+
+  // Prevent overflow on right
+  if (x + menuWidth > viewportWidth) {
+    x = viewportWidth - menuWidth - 8;
+  }
+
+  // Prevent overflow at bottom
+  if (y + menuHeight > viewportHeight) {
+    y = viewportHeight - menuHeight - 8;
+  }
+
+  setMenuState({
+    id: item.id,
+    x,
+    y,
+    type: "folder",
+  });
+  }}
+>
+  {/* Top row */}
+  <div className="flex justify-between items-center gap-3">
+    <div className="flex items-center gap-2 truncate">
+      {item.size === undefined ? (
+        <FaFolder className="text-4xl text-blue-400 shrink-0" />
+      ) : (
+        <img src={getFileIcon(item.name)} className="w-10 shrink-0" />
+      )}
+
+      <div className="flex flex-col truncate">
+        <p className="text-sm truncate">{item.name}</p>
+
+        {item.size !== undefined && !isUploadingItem && (
+          <p className="text-gray-400 text-sm">
+            {formatBytes(item.size)}
+          </p>
+        )}
+      </div>
+    </div>
+
+    <div className="flex items-center gap-2">
+      <FaStar className="opacity-0 group-hover:opacity-100 transition-opacity" />
+      <MoreVertical className="text-gray-400" />
+    </div>
+  </div>
+
+  {/* Uploading row (INLINE, BELOW NAME) */}
+  {isUploadingItem && (
+    <div className="mt-3">
+      <div className="flex items-center gap-2">
+        {/* Progress bar */}
+        <div className="flex-1 h-2 bg-gray-200 rounded overflow-hidden">
+          <div
+            className={`h-full transition-all ${
+              uploadProgress === 100 ? "bg-green-600" : "bg-blue-600"
+            }`}
+            style={{ width: `${uploadProgress}%` }}
+          />
+        </div>
+
+        {/* Cancel button */}
+        <button
+          onClick={(e) => {
+            e.stopPropagation();
+            handleCancelUpload(item.id);
+          }}
+          className="text-gray-500 hover:text-red-600 text-sm"
+        >
+          ✕
+        </button>
+      </div>
+
+      <p className="text-xs text-gray-500 mt-1">
+        Uploading… {Math.floor(uploadProgress)}%
+      </p>
+    </div>
+  )}
+</div>
+
+     
+    )})}
+  </div>
+)}
+
+      {/* SINGLE CONTEXT MENU BELOW */}
+      {menuState && selectedItem && (
+        <ContextMenu
+          handleRowClick={handleRowClick}
+          item={selectedItem}
+          type={menuState.type}
+          position={{ x: menuState.x, y: menuState.y }}
+          menuRef={menuRef}
+          BASE_URL={BASE_URL}
+          handleDeleteDirectory={handleDeleteDirectory}
+          handleDeleteFile={handleDeleteFile}
+          handleCancelUpload={handleCancelUpload}
+          isUploadingItem={selectedItem.id.startsWith("temp-")}
+          handleRenameSubmit={handleRenameSubmit}
+          openRenameModal={openRenameModal}
+          onClose={() => {
+            setMenuState(null);
+            setActiveContextMenu(null);
+          }}
+        />
+      )}
+
+       {showCreateFolder && (
+              <NameModal
+                initialName={newDirname}
+                setNewName={setNewDirname}
+                onSubmit={handleCreateDirectory}
+                onClose={() => setShowCreateFolder(false)}
+                title="Create new folder"
+                actionLabel="Create"
+              />
+            )}
+            {showRenameModal && (
+              <NameModal
+                initialName={renameValue}
+                setNewName={setRenameValue}
+                onSubmit={handleRenameSubmit}
+                renameType={renameType}
+      
+                onClose={closeRename}
+                title={renameType === "file" ? "Rename file" : "Rename folder"}
+                actionLabel="Rename"
+              />
+            )}
+    </>
+  );
+}
+
+
+ function DropdownItem({ label, active, onClick }) {
+  return (
+    <button
+      onClick={onClick}
+      className={`w-full text-left px-3 py-2 text-sm transition
+        ${active ? "bg-blue-100 text-blue-700" : "hover:bg-gray-100"}
+      `}
+    >
+      {label}
+    </button>
+  );
+}

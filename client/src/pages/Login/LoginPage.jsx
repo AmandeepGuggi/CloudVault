@@ -71,7 +71,7 @@ const [isVerifyingOtp, setIsVerifyingOtp] = useState(false);
             setIsSubmitting(false)
           } 
           else if(response.status===201) {
-              navigate("/directory");
+              navigate("/app");
              setIsSubmitting(false)
           }
             

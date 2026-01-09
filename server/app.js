@@ -13,13 +13,7 @@ import authRoutes from "./routes/authRoutes.js"
 try {
   const app = express();
 app.use(cookieParser("storageDrive-guggi-123#"));
-app.use((req, res, next) => {
-  console.log("running app.js");
-  console.log("RAW Cookie Header:", req.headers.cookie);
-  console.log("req.cookies:", req.cookies);
-  console.log("req.signedCookies:", req.signedCookies);
-  next();
-});
+
 app.use(express.json());
 app.use(
   cors({
@@ -37,17 +31,8 @@ app.use("/file", checkAuthMiddleware, fileRoutes);
 app.use("/user", userRoutes);
 app.use("/otp", authRoutes);
 
-app.use((err, req, res, next) => {
-  console.error("💥 REAL ERROR ↓↓↓");
-  console.error(err);
-  console.error("💥 STACK ↓↓↓");
-  console.error(err.stack);
 
-  res.status(500).json({
-    error: err.message,
-    stack: err.stack
-  });
-});
+
 
 
 

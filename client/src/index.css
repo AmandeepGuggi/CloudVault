@@ -15,7 +15,9 @@
 .bg-tertiary {
   background-color: #c2e7ff;
 }
-
+.bg-blue-primary {
+  background-color: #2563eb;
+}
 
 
 @keyframes spin {

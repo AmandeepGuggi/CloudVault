@@ -1,10 +1,11 @@
 import express from "express";
 
-import { createDirectory, deleteDirectory, getDirectorybyId, renameDirectory } from "../controllers/directoryController.js";
+import { createDirectory, deleteDirectory, getDirectorybyId, getStarredDirectories, renameDirectory, toggleDirectoryStar } from "../controllers/directoryController.js";
 
 
 const router = express.Router();
 
+router.get('/starred', getStarredDirectories);
 router.get("/" , getDirectorybyId);
 router.get("/:id" , getDirectorybyId);
 
@@ -16,7 +17,6 @@ router.patch('/', renameDirectory);
 
 router.delete("/:id", deleteDirectory);
 
-// router.patch('/:id/star', );
-// router.get('/starred', );
+router.patch('/:id/starred', toggleDirectoryStar);
 
 export default router;

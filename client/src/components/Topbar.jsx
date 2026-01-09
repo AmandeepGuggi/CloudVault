@@ -1,16 +1,16 @@
 import { FaSearch } from "react-icons/fa";
 import ProfileMenu from "./ProfileMenu";
-import { Settings } from "lucide-react";
+import { Menu, Settings, Bell } from "lucide-react";
 
 import { useRef, useEffect, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { BASE_URL } from "../utility";
 
 export default function Topbar({
+  onToggleSidebar,
   showProfile,
   onProfileClose,
   onProfileToggle,
-  setAuthChecked
 }) {
 
   const profileRef = useRef(null);
@@ -89,31 +89,44 @@ getUser()
 
   return (
     <header className="flex items-center border-b border-gray-300 justify-between  px-4 lg:bg-primary relative">
-      <div className=" hidden md:flex items-center w-full mr-4 py-1.75 px-4 outline-none">
+      <div className=" hidden md:flex items-center gap-4">
+        <button variant="ghost" size="icon" onClick={onToggleSidebar} className="hover:bg-muted">
+          <Menu size={20} />
+        </button>
+      </div>
+      <div className=" hidden md:flex lg:flex items-center w-full mr-4 py-1.75 px-4 outline-none">
         <FaSearch className="inline mr-2 text-gray-400" />
          <input
         className="w-[90%] py-2.25 text-[15px] border-0 outline-0"
         placeholder="Start typing to search your file"
       />
       </div>
-      <div className="flex lg:hidden md:hidden items-center">
-        <div className="py-3 bg-blue-400 m-2 text-white font-bold rounded px-4 ">
+      <div className="flex lg:hidden md:hidden  items-center">
+        <div className="py-2  md:flex bg-blue-primary m-2 text-white font-bold  rounded px-3 ">
         CV
       </div>
-      <p className="text-[20px] font-bold "> CloudVault</p>
+      <p className="text-[20px]  md:py-0 font-bold "> CloudVault</p>
       </div>
 
 
-<div className="flex items-center gap-4 pl-3">
+<div className="flex items-center gap-3 pl-3">
 
-  {/* Settings — desktop only */}
+  {/* Settings and Bell — desktop only */}
+    <button
+    className=" md:flex items-center justify-center w-9 h-9 rounded-md text-black hover:text-gray-700 hover:bg-gray-100 transition"
+    aria-label="Settings"
+    onClick={() => navigate("/settings")}
+  >
+    <Bell size={18} />
+  </button>
   <button
-    className="hidden md:flex items-center justify-center w-9 h-9 rounded-md text-gray-500 hover:text-gray-700 hover:bg-gray-100 transition"
+    className=" md:flex items-center justify-center w-9 h-9 rounded-md text-black hover:text-gray-700 hover:bg-gray-100 transition"
     aria-label="Settings"
     onClick={() => navigate("/settings")}
   >
     <Settings size={18} />
   </button>
+
 
   {/* Profile avatar */}
   <div onClick={onProfileToggle}>
