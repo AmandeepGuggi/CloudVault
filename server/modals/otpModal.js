@@ -19,6 +19,10 @@ const otpSchema = new mongoose.Schema({
       type: Date,
       default: null,
     },
+    verified: {
+      type: Boolean,
+      default: false,
+    },
 });
 
 const OTP = mongoose.model("OTP", otpSchema);

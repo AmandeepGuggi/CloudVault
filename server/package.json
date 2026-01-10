@@ -22,7 +22,11 @@
 
     "cors": "^2.8.5",
 
+    "dotenv": "^17.2.3",
+
     "express": "^5.2.1",
+
+    "google-auth-library": "^10.5.0",
 
     "mongodb": "^7.0.0",
 

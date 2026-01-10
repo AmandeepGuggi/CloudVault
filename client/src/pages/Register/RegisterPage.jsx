@@ -61,13 +61,17 @@ export default function RegisterPage() {
 
     try {
       setIsSending(true);
-      const res = await fetch(`${BASE_URL}/otp/send-otp`, {
+      const res = await fetch(`${BASE_URL}/otp/send-register-otp`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ email }),
       });
+      console.log("1. sending-reg-otp", res);
       const data = await res.json();
-
+       if (res.status === 409) {
+    setOtpError("User already exists");
+    return;
+  }
       if (res.ok) {
         setOtpSent(true);
         setCountdown(60); // allow resend after 60s
@@ -105,6 +109,7 @@ export default function RegisterPage() {
         setOtpSent(true);
         setCountdown(60); // allow resend after 60s
         setOtpError("");
+       
       } else {
         setOtpError(data.error || "Failed to send OTP.");
       }
@@ -133,11 +138,11 @@ export default function RegisterPage() {
         body: JSON.stringify({ email, otp }),
       });
       const data = await res.json();
-
+      console.log("2. otp verify response", res, data);
       if (res.ok) {
         setOtpVerified(true);
         setOtpError("");
-        navigate("/directory")
+        // navigate("/directory")
       } else {
         setOtpError(data.error || "Invalid or expired OTP.");
       }
@@ -148,6 +153,19 @@ export default function RegisterPage() {
       setIsVerifying(false);
     }
   };
+
+  const handleFinalRegister = async () => {
+  if (!otpVerified) return;
+    console.log("3. complete regis..", {formData});
+  const res = await fetch(`${BASE_URL}/user/register`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    credentials: "include",
+    body: JSON.stringify(formData)
+  });
+
+  if (res.ok) navigate("/app");
+};
 
  
 
@@ -162,13 +180,16 @@ export default function RegisterPage() {
          setIsVerifying(true);
       const response = await fetch(`${BASE_URL}/user/register`, {
         method: "POST",
-        body: JSON.stringify({...formData, otp}),
+        body: JSON.stringify(formData),
         headers: {
           "Content-Type": "application/json",
         },
         credentials: "include"
       });
       const data = await response.json();
+      if(response.status === 201){
+        handleSendOtp(e)
+      }
       if (!response.ok) {
   console.log("Server response:", data);
   setServerError( data.error || data.message || "Registration failed");
@@ -244,11 +265,12 @@ else if(data.status === 201){
          isOtpVerifying={isVerifying}
          otpVerified={otpVerified}
         otpError={otpError}
-        handleVerifyOtp={handleRegisterSubmit}
+        handleVerifyOtp={handleVerifyOtp}
         navigateToScreen={navigateToScreen}
         isSending={isSending}
         resendOtp={resendOtp}
         countdown={countdown}
+        handleFinalRegister={handleFinalRegister}
          />
         );
       case "resetPassword":

@@ -3,6 +3,7 @@ import React from 'react'
 import { GoogleIcon } from '../../components/Icons/GoogleIcon';
 import { GithubIcon } from "../../components/Icons/GithubIcon";
 import { useNavigate } from 'react-router-dom';
+import { EmailIcon } from '../../components/Icons/EmailIcon';
 
 const RegisterScreen = ({handleSendOtp, handleInputChange, fullnameTxt, emailTxt, passwordTxt, isSending, navigateToScreen, serverError}) => {
   const navigate = useNavigate()
@@ -107,6 +108,7 @@ const RegisterScreen = ({handleSendOtp, handleInputChange, fullnameTxt, emailTxt
 
             {/* OAuth */}
             <div className="space-y-3">
+             
               <button
                 type="button"
                 className="w-full h-12 flex items-center justify-center gap-3 border border-gray-300 rounded hover:bg-gray-50 transition-colors"

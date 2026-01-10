@@ -18,10 +18,21 @@ const userSchema = new Schema({
         lowercase: true,
         trim: true,
     },
+     authProvider: {
+      type: String,
+      enum: ["local", "google"],
+      required: true,
+      default: "local",
+    },
+     providerId: {
+      type: String,
+      default: null, // Google sub
+      index: true,
+    },
     password: {
         type: String,
-        required: true,
-        minLength: 8
+        minLength: 8,
+        default: null,
     },
     rootDirId: {
         type: Schema.Types.ObjectId,
@@ -30,16 +41,19 @@ const userSchema = new Schema({
     },
 }, {
     strict: "throw",
+    timestamps: true,
     collection: "users"
 })
 
 
 userSchema.pre("save", async function () {
+    if (!this.password) return;
   if (!this.isModified("password")) return;
   this.password = await bcrypt.hash(this.password, 12);
 });
 
 userSchema.methods.comparePassword = async function (candidatePassword) {
+    if (!this.password) return false; 
      return bcrypt.compare(candidatePassword, this.password)
 }
 

@@ -1,7 +1,7 @@
 import React from 'react'
 import Button from '../../components/Button'
 
-const VerifyOtp = ({emailTxt, otpTxt, onOtpChange, isOtpVerifying, otpVerified, otpError, isSending, handleVerifyOtp, navigateToScreen, resendOtp, countdown}) => {
+const VerifyOtp = ({emailTxt, otpTxt, onOtpChange, isOtpVerifying, otpVerified, otpError, isSending, handleVerifyOtp, navigateToScreen, resendOtp, countdown, handleFinalRegister}) => {
   return (
     <div className="flex items-center justify-center px-4 py-16">
           {/* Main Content */}
@@ -38,13 +38,19 @@ const VerifyOtp = ({emailTxt, otpTxt, onOtpChange, isOtpVerifying, otpVerified, 
             </div>
 
             <button type='submit' onClick={handleVerifyOtp} 
-            className={`${isOtpVerifying || otpVerified ? "bg-blue-300 cursor-not-allowed": "bg-[#0061D5] cursor-pointer hover:bg-[#0052B4]"} w-full h-12  text-white font-medium rounded-md text-base`}>
+            className={`${isOtpVerifying ? "bg-blue-300 cursor-not-allowed": "bg-[#0061D5] cursor-pointer hover:bg-[#0052B4]"} ${otpVerified ? "hidden" : ""} transition-colors duration-200 w-full h-12  text-white font-medium rounded-md text-base`}>
               
                {isOtpVerifying
                   ? "Verifying..."
                   : otpVerified
                     ? "Verified"
                     : "Verify OTP"}
+            </button>
+            <button type='button' onClick={handleFinalRegister} 
+            className={`${ otpVerified ? " hover:bg-green-600 cursor-pointer bg-green-400": " hidden bg-[#76a3d9] cursor-not-allowed "} w-full h-12 transition-colors duration-200 text-white font-medium rounded-md text-base`}>
+          
+                  Complete Registration
+                  
             </button>
                
             <div className="text-center space-y-2">

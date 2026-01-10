@@ -4,16 +4,42 @@ import User from "../modals/userModal.js"
 import Session from "../modals/sessionModal.js"
 import OTP from "../modals/otpModal.js";
 
+export const checkEmail = async (req, res) => {
+  const { email } = req.body;
+
+  if (!email) {
+    return res.status(400).json({ error: "Email required" });
+  }
+
+  const exists = await User.exists({ email });
+
+  if (exists) {
+    return res.status(409).json({
+      error: "User already exists"
+    });
+  }
+
+  res.status(200).json({ message: "Email available" });
+};
 
 export const registerUser = async (req, res, next) => {
-  const { fullname, email, password, otp } = req.body
+  const { fullname, email, password } = req.body
+  console.log("formata received", fullname, email, password );
+   const otpRecord = await OTP.findOne({ email, verified: true });
+   if (!otpRecord) {
+    return res.status(401).json({ error: "OTP not verified" });
+  }
+
   const foundUser = await User.exists({ email })
+  console.log("hii", {foundUser});
   if (foundUser) {
     return res.status(409).json({
       error: "User with this email already exists",
       message: "A user with this email address already exists. Please try logging in or use a different email."
     })
   }
+
+  // return res.status(201).end() // temporary to skip registration
     
   const session = await mongoose.startSession();
 
@@ -22,13 +48,14 @@ export const registerUser = async (req, res, next) => {
 
   try {
 
-    const otpRecord = await OTP.findOne({email, otp})
-    if(!otpRecord){
-        res.status(400).json({error: "Invalid or expired OTP"});
-    }
-    if(otpRecord){
-      await otpRecord.deleteOne()
-    }
+    // const otpRecord = await OTP.findOne({email, otp})
+    // if(!otpRecord){
+    //     res.status(400).json({error: "Invalid or expired OTP"});
+    // }
+    // if(otpRecord){
+    //   await session.abortTransaction();
+    //   await otpRecord.deleteOne()
+    // }
 
 
     const userRootDirId = new mongoose.Types.ObjectId();
@@ -39,6 +66,8 @@ export const registerUser = async (req, res, next) => {
       fullname,
       email,
       password,
+      authProvider: "local",
+      providerId: null,
       rootDirId: userRootDirId
     }], { session })
    await Directory.create([{
@@ -49,19 +78,16 @@ export const registerUser = async (req, res, next) => {
       isDirectory: true
     }], { session })
 
-    // res.status(201).json({ message: "User Registered", status: 201 })
+    const loginSession = await Session.create([{ userId }], { session })
+    await OTP.deleteMany({ email });
     await session.commitTransaction();
 
-   
-
-  const loginSession = await Session.create({userId})
-
-  res.cookie('sid', loginSession.id, {
+  res.cookie('sid', loginSession[0]._id.toString(), {
     httpOnly: true,
     signed: true,
     sameSite: "lax",
     maxAge: 1000 * 60 * 60 * 24 * 7 ,
-  }, {session})
+  },)
   console.log("loginSession created", req.signedCookies);
   res.status(201).json({ message: 'User Registered and logged in', status: 201 })
     
