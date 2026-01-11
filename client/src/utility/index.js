@@ -93,7 +93,18 @@ export  function formatBytes(bytes) {
   else return (bytes / (1024 * 1024)).toFixed(2) + " MB";
 }
 
-
+export const loginWithGoogle = async (credentials) => {
+   const response = await fetch(`${BASE_URL}/auth/google`, {
+    method: "POST",
+    headers: {
+      "Content-Type": "application/json",
+    },
+    credentials: "include",
+    body: JSON.stringify({ idToken: credentials}),
+  })
+  const data = await response.json();
+  return data.user
+}
 
 
 // console.log(formatBytes(43343)); // 42.33 KB

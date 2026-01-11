@@ -1,9 +1,9 @@
 import React from 'react'
 
-import { GoogleIcon } from '../../components/Icons/GoogleIcon';
+import { GoogleLogin } from '@react-oauth/google'
 import { GithubIcon } from "../../components/Icons/GithubIcon";
 import { useNavigate } from 'react-router-dom';
-import { EmailIcon } from '../../components/Icons/EmailIcon';
+import { loginWithGoogle } from '../../utility';
 
 const RegisterScreen = ({handleSendOtp, handleInputChange, fullnameTxt, emailTxt, passwordTxt, isSending, navigateToScreen, serverError}) => {
   const navigate = useNavigate()
@@ -109,13 +109,16 @@ const RegisterScreen = ({handleSendOtp, handleInputChange, fullnameTxt, emailTxt
             {/* OAuth */}
             <div className="space-y-3">
              
-              <button
-                type="button"
-                className="w-full h-12 flex items-center justify-center gap-3 border border-gray-300 rounded hover:bg-gray-50 transition-colors"
-              >
-                <GoogleIcon />
-                <span className="text-gray-700 font-medium">Sign up with Google</span>
-              </button>
+              <GoogleLogin
+  onSuccess={credentialResponse => {
+    loginWithGoogle(credentialResponse)
+    console.log(credentialResponse);
+  }}
+  onError={() => {
+    console.log('Login Failed');
+  }}
+/>;
+
 
               <button
                 type="button"

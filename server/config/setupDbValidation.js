@@ -1,5 +1,6 @@
 import mongoose from "mongoose";
 import { connectDB } from "./mongooseDb.js";
+import { auth } from "google-auth-library";
 
 
 await connectDB()
@@ -43,7 +44,7 @@ async function run() {
       validator: {
         $jsonSchema: {
           bsonType: "object",
-          required: ["fullname", "email", "password"],
+          required: ["fullname", "email", "rootDirId"],
           properties: {
             fullname: { bsonType: "string", minLength: 3 },
             email: {
@@ -51,6 +52,8 @@ async function run() {
               pattern: "^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\\.[a-zA-Z]{2,}$"
             },
             password: { bsonType: "string", minLength: 8 },
+            picture: { bsonType: "string"},
+            authProvider: { bsonType: "string", enum: ["local", "google"] },
             rootDirId: { bsonType: ["objectId", "null"] },
             createdAt: { bsonType: "date" },
             updatedAt: { bsonType: "date" },

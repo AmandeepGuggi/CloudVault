@@ -29,9 +29,8 @@ useEffect(() => {
       <div className="flex-1 flex flex-col">
         <Topbar 
         onToggleSidebar={() => setSidebarOpen(prev => !prev)}
-          onProfileToggle={() => setShowProfile(prev => !prev)}
           showProfile={showProfile}
-          onProfileClose={() => setShowProfile(false)}
+          setShowProfile={setShowProfile}
         />
       
 

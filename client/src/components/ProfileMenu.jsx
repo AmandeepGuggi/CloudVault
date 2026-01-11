@@ -1,7 +1,7 @@
 import {FaSignOutAlt} from "react-icons/fa";
-export default function ProfileMenu({reff, userEmail, loggedIn, userName, handleLogout}) {
+export default function ProfileMenu({ userEmail, loggedIn, userName, handleLogout}) {
   return (
-    <div ref={reff} className="absolute right-4 top-14 w-64 md:w-84 bg-secondary box-shadow rounded-xl p-4 z-50">
+    <div  className="absolute right-4 top-14 w-64 md:w-84 bg-secondary box-shadow rounded-xl p-4 z-50">
       <p className="text-gray-900 text-center">{userEmail} </p>
   {/* <div className="rounded-full overflow-hidden w-20 h-20 mx-auto my-4 border border-gray-200">
        <img src="/photo2.jpeg" alt="user" className="object-cover w-full h-full  "  />
@@ -29,7 +29,7 @@ export default function ProfileMenu({reff, userEmail, loggedIn, userName, handle
         <button className="text-gray-600  bg-white px-8 text-[14px] rounded-full md:rounded-r-none md:rounded-l-full text-nowrap py-2">
          + Add account</button>
         <button onClick={()=> handleLogout()} className=" text-gray-600 cursor-pointer bg-white px-8 text-[14px] rounded-full md:rounded-l-none md:rounded-r-full py-2 text-nowrap">
-          <FaSignOutAlt className="inline mr-2" />{loggedIn? "Sign out": "Sign in"}</button>
+          <FaSignOutAlt className="inline mr-2" />{loggedIn? "Logout": "LogIn"}</button>
       </div>
     </div>
   );

@@ -4,23 +4,6 @@ import User from "../modals/userModal.js"
 import Session from "../modals/sessionModal.js"
 import OTP from "../modals/otpModal.js";
 
-export const checkEmail = async (req, res) => {
-  const { email } = req.body;
-
-  if (!email) {
-    return res.status(400).json({ error: "Email required" });
-  }
-
-  const exists = await User.exists({ email });
-
-  if (exists) {
-    return res.status(409).json({
-      error: "User already exists"
-    });
-  }
-
-  res.status(200).json({ message: "Email available" });
-};
 
 export const registerUser = async (req, res, next) => {
   const { fullname, email, password } = req.body
@@ -47,17 +30,6 @@ export const registerUser = async (req, res, next) => {
   session.startTransaction();
 
   try {
-
-    // const otpRecord = await OTP.findOne({email, otp})
-    // if(!otpRecord){
-    //     res.status(400).json({error: "Invalid or expired OTP"});
-    // }
-    // if(otpRecord){
-    //   await session.abortTransaction();
-    //   await otpRecord.deleteOne()
-    // }
-
-
     const userRootDirId = new mongoose.Types.ObjectId();
      const userId = new mongoose.Types.ObjectId();
      
@@ -66,8 +38,8 @@ export const registerUser = async (req, res, next) => {
       fullname,
       email,
       password,
-      authProvider: "local",
-      providerId: null,
+      // authProvider: "local",
+      // providerId: null,
       rootDirId: userRootDirId
     }], { session })
    await Directory.create([{
