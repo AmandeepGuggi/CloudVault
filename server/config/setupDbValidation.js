@@ -53,7 +53,7 @@ async function run() {
             },
             password: { bsonType: "string", minLength: 8 },
             picture: { bsonType: "string"},
-            authProvider: { bsonType: "string", enum: ["local", "google"] },
+            authProvider: { bsonType: "string", enum: ["local", "google", "github"] },
             rootDirId: { bsonType: ["objectId", "null"] },
             createdAt: { bsonType: "date" },
             updatedAt: { bsonType: "date" },

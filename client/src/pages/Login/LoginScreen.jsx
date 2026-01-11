@@ -40,6 +40,27 @@ const LoginScreen = ({
     };
   }, [navigate]);
 
+//   const githubLogin = () => {
+    
+//     const clientId = import.meta.env.VITE_GITHUB_CLIENT_ID;
+//   const redirectUri = "http://localhost:4000/auth/github/callback";
+
+//   window.open('http://localhost:4000/auth/github', "githubAuthWindow", "width=600,height=700");
+   
+// };
+
+const githubLogin = () => {
+  const clientId = import.meta.env.VITE_GITHUB_CLIENT_ID;
+  const redirectUri = "http://localhost:4000/auth/github/callback";
+
+  window.location.href =
+    `https://github.com/login/oauth/authorize` +
+    `?client_id=${clientId}` +
+    `&redirect_uri=${redirectUri}` +
+    `&scope=user:email`;
+};
+
+
   return (
     <main className="flex items-center justify-center px-4 py-16">
       {loading && (
@@ -159,7 +180,7 @@ const LoginScreen = ({
           />
           </div>
 
-          <button
+          <button onClick={githubLogin}
             type="button"
             className="w-full h-12 flex items-center justify-center gap-3 bg-white border border-gray-300 rounded hover:bg-gray-50 transition-colors"
           >
