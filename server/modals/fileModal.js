@@ -17,6 +17,15 @@ const FilesSchema = new Schema({
         type: Schema.Types.ObjectId,
         required: true
     },
+    mimeType: {
+        type: String,
+        required: false
+    },
+    preview: {
+        type: String,
+        required: false
+    },
+    
     parentDirId: {
         type: Schema.Types.ObjectId,
         required: true,

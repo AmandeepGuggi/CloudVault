@@ -7,7 +7,7 @@ import fileRoutes from "./routes/fileRoutes.js"
 import userRoutes from "./routes/userRoutes.js";
 import checkAuthMiddleware from "./auth/checkAuthMiddleware.js";
 import authRoutes from "./routes/authRoutes.js"
-
+import path from "path"
 
 
 
@@ -17,6 +17,11 @@ app.use(cookieParser("storageDrive-guggi-123#"));
 
 app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
+app.use(
+  "/previews",
+  express.static(path.join(process.cwd(), "previews"))
+);
+
 app.use(
   cors({
     origin: "http://localhost:5173",

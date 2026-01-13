@@ -13,7 +13,7 @@ if (!doesExist) {
   }
   const directoryData = await Directory.findOne({_id: id, isDeleted: false}).lean();
 
-  const files = await Files.find({parentDirId: id , isDeleted: false}).select("name userId parentDirId size updatedAt isStarred isDeleted").lean()
+  const files = await Files.find({parentDirId: id , isDeleted: false}).select("name userId parentDirId size updatedAt isStarred isDeleted preview").lean()
   const directories = await Directory.find({ parentDirId: id, isDeleted: false }).select("name userId parentDirId isDirectory isStarred isDeleted").lean()
   
   return res.status(200).json({ ...directoryData, files: files.map((file) => ({...file, id: file._id})), directories: directories.map((dir) => ({...dir, id: dir._id}) ) })

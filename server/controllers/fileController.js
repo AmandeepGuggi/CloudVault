@@ -1,9 +1,17 @@
 import { rm } from "fs/promises";
 import path from "path";
+import fs from "fs";
 import { createWriteStream, readFile } from "fs";
 import Directory from "../modals/directoryModal.js";
+import { fileTypeFromFile } from "file-type";
 import Files from "../modals/fileModal.js";
 import mongoose from "mongoose";
+import sharp from 'sharp'
+import { execFile } from "child_process";
+import { promisify } from "util";
+const execFileAsync = promisify(execFile);
+
+
 
 
 // export const createFile = async(req, res, next) => {
@@ -46,7 +54,6 @@ import mongoose from "mongoose";
 
 export const createFile = async (req, res, next) => {
   const user = req.user;
-
   const _id = req.params.parentDirId ?? req.user.rootDirId;
   const parentDirData = await Directory.findOne({ _id });
   if (!parentDirData) {
@@ -65,23 +72,110 @@ export const createFile = async (req, res, next) => {
       parentDirId: parentDirData._id,
       userId: user._id,
       size: 0, // temporary
+      // mimeType: null
     });
 
     const fullFileName = `${insertedFile._id}${extension}`;
+    const filePath = `${process.cwd()}/storage/${insertedFile._id}${extension}`;
     const writeStream = createWriteStream(`./storage/${fullFileName}`);
-
     // 🔑 COUNT BYTES AS THEY FLOW
     req.on("data", chunk => {
       bytesWritten += chunk.length;
     });
-
+    
     req.pipe(writeStream);
-
+    
     writeStream.on("finish", async () => {
-      await Files.updateOne(
+      const detected = await fileTypeFromFile(filePath);
+      const finalMime =
+      detected?.mime || "application/octet-stream";
+       await Files.updateOne(
         { _id: insertedFile._id },
-        { $set: { size: bytesWritten } }
+        { $set: { size: bytesWritten, mimeType: finalMime } }
       );
+      let previewPath = null;
+
+  // ONLY images get thumbnails
+  if (finalMime.startsWith("image/")) {
+    previewPath = `${process.cwd()}/previews/${insertedFile._id}.webp`;
+    const thumbnail = await sharp(filePath)
+      .resize(300, 300, { fit: "inside" }).jpeg({quality: 80})
+      .toFormat("webp")
+      .toFile(previewPath);
+      console.log("thumbnail", thumbnail);
+
+      previewPath = `/previews/${insertedFile._id}.webp`
+       await Files.updateOne(
+        { _id: insertedFile._id },
+        { $set: { preview: previewPath } }
+      );
+  } else if (finalMime === 'application/pdf') {
+  const previewDir = `${process.cwd()}/previews`;
+  if (!fs.existsSync(previewDir)) {
+    fs.mkdirSync(previewDir, { recursive: true });
+  }
+
+  const outBase = `${previewDir}/${insertedFile._id}`;
+
+  // 1️⃣ PDF → PNG (first page only)
+  await execFileAsync("/opt/homebrew/bin/pdftocairo", [
+    "-f", "1",
+    "-l", "1",
+    "-singlefile",
+    "-png",
+    filePath,
+    outBase
+  ]);
+
+  // 2️⃣ Resize → WEBP thumbnail
+  await sharp(`${outBase}.png`)
+    .resize(300, 300, { fit: "inside", withoutEnlargement: true })
+    .toFormat("webp")
+    .toFile(`${outBase}.webp`);
+
+  // 3️⃣ Cleanup PNG
+  fs.unlinkSync(`${outBase}.png`);
+
+  previewPath = `/previews/${insertedFile._id}.webp`;
+   await Files.updateOne(
+        { _id: insertedFile._id },
+        { $set: { preview: previewPath } }
+      );
+  } else if(finalMime === 'video/mp4'){
+    const previewDir = `${process.cwd()}/previews`;
+    if (!fs.existsSync(previewDir)) {
+    fs.mkdirSync(previewDir, { recursive: true });
+  }
+    const outBase = `${previewDir}/${insertedFile._id}`;
+  const tempPng = `${outBase}.png`;
+
+  // 1️⃣ Extract one frame at 1 second
+  await execFileAsync("/opt/homebrew/bin/ffmpeg", [
+    "-ss", "00:00:01",
+    "-i", filePath,
+    "-frames:v", "1",
+    "-q:v", "2",
+    tempPng
+  ]);
+
+   // 2️⃣ Convert to compressed WEBP
+  await sharp(tempPng)
+    .resize(300, 300, { fit: "inside", withoutEnlargement: true })
+    .webp({ quality: 70 })
+    .toFile(`${outBase}.webp`);
+
+  // 3️⃣ Cleanup
+  fs.unlinkSync(tempPng);
+
+  previewPath = `/previews/${insertedFile._id}.webp`;
+  const v = await Files.updateOne(
+        { _id: insertedFile._id },
+        { $set: { preview: previewPath } }
+      );
+      console.log(v);
+  }
+
+     
 
       res.status(201).json({ message: "File uploaded", size: bytesWritten });
     });
@@ -99,7 +193,6 @@ export const createFile = async (req, res, next) => {
 
 export const readFiles = async(req, res) => {
   const { id } = req.params;
-  console.log(req.user);
   const fileData = await Files.findOne({_id: id , userId: req.user._id})
   if (!fileData) {
     return res.status(404).json({ error: "No such file exists!" });
@@ -117,6 +210,27 @@ export const readFiles = async(req, res) => {
     }
   });
 }
+
+
+
+export const previewFile = async (req, res) => {
+  const { id } = req.params
+  const fileData = await File.findOne({_id: id});
+
+  if (!fileData) return res.status(404).json({ error: "No such file exists!" });
+
+  const filePath = path.join("storage", `${fileData._id}${fileData.extension}`);
+  
+  if (!fs.existsSync(diskPath)) {
+    return res.sendStatus(410); // gone
+  }
+
+  res.setHeader("Content-Type", fileData.mimeType);
+  res.setHeader("Content-Disposition", "inline");
+
+  fs.createReadStream(filePath).pipe(res);
+};
+
 
 // export const updateFile =  async (req, res, next) => {
 //   const { id } = req.params;

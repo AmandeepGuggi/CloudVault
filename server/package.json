@@ -20,6 +20,8 @@
 
     "bcrypt": "^6.0.0",
 
+    "canvas": "^3.2.1",
+
     "cookie-parser": "^1.4.7",
 
     "cors": "^2.8.5",
@@ -27,6 +29,8 @@
     "dotenv": "^17.2.3",
 
     "express": "^5.2.1",
+
+    "file-type": "^21.3.0",
 
     "google-auth-library": "^10.5.0",
 
@@ -36,7 +40,11 @@
 
     "multer": "^2.0.2",
 
-    "nodemailer": "^7.0.12"
+    "nodemailer": "^7.0.12",
+
+    "pdf-poppler": "^0.2.3",
+
+    "sharp": "^0.34.5"
 
   }
 

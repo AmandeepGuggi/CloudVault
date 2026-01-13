@@ -37,6 +37,8 @@ export  const getFileIcon = (filename) => {
         return "/assets/icons/file-csv.svg";
       case "txt":
         return "/assets/icons/file-txt.svg";
+      case "zip":
+          return "/assets/icons/zip.svg";
       case "xls":
       case "xlsx":
         return "/assets/icons/file-document.svg";

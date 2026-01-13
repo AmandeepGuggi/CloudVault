@@ -77,6 +77,8 @@ async function run() {
             name: { bsonType: "string", minLength: 1 },
             extension: { bsonType: "string", minLength: 1, maxLength: 10 },
             size: { bsonType: "int", minimum: 0 },
+            mimeType: {bsonType: "string"},
+            preview: {bsonType: "string"},
             userId: { bsonType: "objectId" },
             parentDirId: { bsonType: "objectId" },
             createdAt: { bsonType: "date" },

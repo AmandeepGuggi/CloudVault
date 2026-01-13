@@ -8,7 +8,7 @@ import ContextMenu from "../components/ContextMenu.jsx";
 
 
 export default function Home() {
-  const [view, setView] = useState("list"); 
+  const [view, setView] = useState("grid"); 
   const [sortBy, setSortBy] = useState("name"); 
 const [sortOrder, setSortOrder] = useState("asc"); 
  const [showNewMenu, setShowNewMenu] = useState(false);
@@ -88,10 +88,12 @@ const [directoryName, setDirectoryName] = useState("My Files");
         // Reverse directories and files so new items show on top
         setDirectoriesList([...data.directories].reverse());
         setFilesList([...data.files].reverse());
+        
       } catch (error) {
         setErrorMessage(error.message);
       }
     }
+    console.log(filesList);
    useEffect(() => {
   const close = () => setMenuState(null);
   window.addEventListener("scroll", close, true);
@@ -128,11 +130,13 @@ const [directoryName, setDirectoryName] = useState("My Files");
         // Build a list of "temp" items
         const newItems = selectedFiles.map((file) => {
           const tempId = `temp-${Date.now()}-${Math.random()}`;
+          console.log(file);
           return {
             file,
             name: file.name,
             size: file.size,
             id: tempId,
+            mimeType: file.type,
             isUploading: false,
           };
         });
@@ -204,7 +208,7 @@ const [directoryName, setDirectoryName] = useState("My Files");
     
         // If user cancels, remove from the queue
         setUploadXhrMap((prev) => ({ ...prev, [currentItem.id]: xhr }));
-    
+       
         xhr.send(currentItem.file);
       
       }
@@ -270,9 +274,7 @@ async function moveFolderToBin(folderId) {
   }
 }
 
-
-    
-      /**
+/**
        * Delete a file/directory
        */
       async function handleDeleteFile(id) {
@@ -506,6 +508,38 @@ return 0;
   }
 }
 
+const renderFileVisual = (item) => {
+  // Folder
+  if (item.size === undefined) {
+    return <FaFolder className="text-5xl text-blue-400 shrink-0" />;
+  }
+
+  // File with preview
+  if (item.preview) {
+    return (
+      <img
+        src={`${BASE_URL}${item.preview}`}
+        alt={item.name}
+        className="w-full h-full object-contain p-2"
+      />
+    );
+  }
+
+  // File without preview → icon
+  return (
+    <img
+      src={getFileIcon(item.name)}
+      alt={item.name}
+      className="w-10 h-10 shrink-0"
+    />
+  );
+};
+
+
+function previewUrl(file) {
+  return `${BASE_URL}/file/preview/${file._id}`;
+}
+
   
  
   return (
@@ -689,8 +723,8 @@ return 0;
 </div>
     </div>
 
-      <div className="px-3 py-">
-    <h1 className="text-2xl font-medium text-gray-700">
+      <div className="px-3 pb-2">
+    <h1 className="text-[22px] font-medium text-gray-700">
       {directoryName}
     </h1>
     <p className="text-sm text-gray-400">
@@ -708,7 +742,7 @@ const uploadProgress = progressMap[item.id] || 0;
       
     <div
   key={item.id}
-  className="border group border-gray-300 rounded-lg p-4 cursor-pointer hover:bg-gray-50"
+  className="border group border-gray-300 rounded-lg px-4 py-1 cursor-pointer hover:bg-gray-50"
   onClick={() =>
     !(activeContextMenu || isUploading) &&
     handleRowClick(item.isDirectory ? "directory" : "file", item.id)
@@ -768,7 +802,7 @@ const uploadProgress = progressMap[item.id] || 0;
       <FaStar onClick={(e) => {
         e.stopPropagation()
         toggleStar(item.id, item.isDirectory)
-        }} className={` ${item.isStarred ? "text-yellow-400" : "text-gray-400  opacity-0 group-hover:opacity-100"} transition-opacity`} />
+        }} className={` ${item.isStarred ? "text-gray-400" : "text-gray-400  opacity-0 group-hover:opacity-100"} transition-opacity`} />
         
       <MoreVertical onClick={(e) => {
     if (isUploadingItem) return; 
@@ -840,9 +874,8 @@ const uploadProgress = progressMap[item.id] || 0;
     )})}
   </div>
 )}
-
 {view === "grid" && (
-  <div className="grid grid-cols-2 pb-20 md:pb-2 sm:grid-cols-3 md:grid-cols-3 gap-4">
+  <div className="grid grid-cols-2  sm:grid-cols-3 md:grid-cols-3 gap-2">
     {sortedItems.map((item) => {
       const isUploadingItem = 
   !item.isDirectory && item.id.startsWith("temp-");
@@ -851,7 +884,7 @@ const uploadProgress = progressMap[item.id] || 0;
       
     <div
   key={item.id}
-  className="border group border-gray-300 rounded-lg p-4 cursor-pointer hover:bg-gray-50"
+ 
   onClick={() =>
     !(activeContextMenu || isUploading) &&
     handleRowClick(item.isDirectory ? "directory" : "file", item.id)
@@ -888,29 +921,209 @@ const uploadProgress = progressMap[item.id] || 0;
   }}
 >
   {/* Top row */}
-  <div className="flex justify-between items-center gap-3">
-    <div className="flex items-center gap-2 truncate">
+
       {item.size === undefined ? (
-        <FaFolder className="text-4xl text-blue-400 shrink-0" />
-      ) : (
-        <img src={getFileIcon(item.name)} className="w-10 shrink-0" />
-      )}
-
-      <div className="flex flex-col truncate">
+        <div  className="border group border-gray-300 rounded-lg px-4 py-1 cursor-pointer hover:bg-gray-50">
+         <div className="flex justify-between w-full">
+           <div className="flex items-center gap-2 min-w-0"> 
+            <FaFolder className="text-4xl text-blue-400 shrink-0" />
+             <div className="flex flex-col truncate min-w-0">
         <p className="text-sm truncate">{item.name}</p>
-
-        {item.size !== undefined && !isUploadingItem && (
-          <p className="text-gray-400 text-sm">
-            {formatBytes(item.size)}
-          </p>
-        )}
       </div>
-    </div>
+     
+        </div>
+         <div className="flex items-center gap-2 shrink-0">
+      <FaStar onClick={(e) => {
+        e.stopPropagation()
+        toggleStar(item.id, item.isDirectory)
+        }} className={` ${item.isStarred ? "text-gray-400" : "text-gray-400  opacity-0 group-hover:opacity-100"} transition-opacity`}  />
+      <MoreVertical onClick={(e) => {
+    if (isUploadingItem) return; 
+    e.preventDefault();
+    handleContextMenu(e, item.id);
+    const menuWidth = 180;
+  const menuHeight = 220;
 
-    <div className="flex items-center gap-2">
-      <FaStar className="opacity-0 group-hover:opacity-100 transition-opacity" />
-      <MoreVertical className="text-gray-400" />
+  const viewportWidth = window.innerWidth;
+  const viewportHeight = window.innerHeight;
+
+  let x = e.clientX;
+  let y = e.clientY;
+
+  // Prevent overflow on right
+  if (x + menuWidth > viewportWidth) {
+    x = viewportWidth - menuWidth - 8;
+  }
+
+  // Prevent overflow at bottom
+  if (y + menuHeight > viewportHeight) {
+    y = viewportHeight - menuHeight - 8;
+  }
+
+  setMenuState({
+    id: item.id,
+    x,
+    y,
+    type: "folder",
+  });
+  }}  className="text-gray-400" />
     </div>
+         </div>
+         </div>
+      ) : null }
+
+
+  {/* Uploading row (INLINE, BELOW NAME) */}
+  {isUploadingItem && (
+    <div className="mt-3">
+      <div className="flex items-center gap-2">
+        {/* Progress bar */}
+        <div className="flex-1 h-2 bg-gray-200 rounded overflow-hidden">
+          <div
+            className={`h-full transition-all ${
+              uploadProgress === 100 ? "bg-green-600" : "bg-blue-600"
+            }`}
+            style={{ width: `${uploadProgress}%` }}
+          />
+        </div>
+
+        {/* Cancel button */}
+        <button
+          onClick={(e) => {
+            e.stopPropagation();
+            handleCancelUpload(item.id);
+          }}
+          className="text-gray-500 hover:text-red-600 text-sm"
+        >
+          ✕
+        </button>
+      </div>
+
+      <p className="text-xs text-gray-500 mt-1">
+        Uploading… {Math.floor(uploadProgress)}%
+      </p>
+    </div>
+  )}
+</div>
+
+     
+    )})}
+  </div>
+)}
+{view === "grid" && (
+  <div className="grid grid-cols-2 pb-20 md:pb-2 sm:grid-cols-3 md:grid-cols-3 gap-2">
+    {sortedItems.filter(item => item.size !== undefined).map((item) => {
+      const isUploadingItem = 
+  !item.isDirectory && item.id.startsWith("temp-");
+const uploadProgress = progressMap[item.id] || 0;
+      return (
+      
+    <div
+  key={item.id}
+
+  onClick={() =>
+    !(activeContextMenu || isUploading) &&
+    handleRowClick(item.isDirectory ? "directory" : "file", item.id)
+  }
+  onContextMenu={(e) => {
+    if (isUploadingItem) return; 
+    e.preventDefault();
+    handleContextMenu(e, item.id);
+    const menuWidth = 180;
+  const menuHeight = 220;
+
+  const viewportWidth = window.innerWidth;
+  const viewportHeight = window.innerHeight;
+
+  let x = e.clientX;
+  let y = e.clientY;
+
+  // Prevent overflow on right
+  if (x + menuWidth > viewportWidth) {
+    x = viewportWidth - menuWidth - 8;
+  }
+
+  // Prevent overflow at bottom
+  if (y + menuHeight > viewportHeight) {
+    y = viewportHeight - menuHeight - 8;
+  }
+
+  setMenuState({
+    id: item.id,
+    x,
+    y,
+    type: "folder",
+  });
+  }}
+>
+  {/* Top row */}
+  <div>
+    
+      {item.size !== undefined ? (
+        <div  > 
+         <div   className="border group border-gray-300 rounded-lg px-4 py-1 cursor-pointer hover:bg-gray-50">
+       <div className="flex flex-col w-full">
+          <div className="flex justify-between w-full">
+           <div className="flex items-center gap-2 min-w-0"> 
+            <img src={getFileIcon(item.name)} className="w-5 shrink-0" />
+             <div className="flex flex-col truncate min-w-0">
+        <p className="text-sm truncate">{item.name}</p>
+      </div>
+     
+        </div>
+         <div className="flex items-center gap-2 shrink-0">
+      <FaStar onClick={(e) => {
+        e.stopPropagation()
+        toggleStar(item.id, item.isDirectory)
+        }} className={` ${item.isStarred ? "text-gray-400" : "text-gray-400  opacity-0 group-hover:opacity-100"} transition-opacity`}  />
+      <MoreVertical onClick={(e) => {
+    if (isUploadingItem) return; 
+    e.preventDefault();
+    handleContextMenu(e, item.id);
+    const menuWidth = 180;
+  const menuHeight = 220;
+
+  const viewportWidth = window.innerWidth;
+  const viewportHeight = window.innerHeight;
+
+  let x = e.clientX;
+  let y = e.clientY;
+
+  // Prevent overflow on right
+  if (x + menuWidth > viewportWidth) {
+    x = viewportWidth - menuWidth - 8;
+  }
+
+  // Prevent overflow at bottom
+  if (y + menuHeight > viewportHeight) {
+    y = viewportHeight - menuHeight - 8;
+  }
+
+  setMenuState({
+    id: item.id,
+    x,
+    y,
+    type: "folder",
+  });
+  }} className="text-gray-400" />
+    </div>
+   
+         </div>
+          {
+      item.preview ? <>
+      <div className=" w-full pt-1 h-40 overflow-hidden">
+         <img src={`${BASE_URL}${item.preview}`} className="w-full h-full object-cover object-center shrink-0" />
+      </div>
+       </> : <div className=" w-full pt-1 h-40 overflow-hidden" > 
+       <img src={getFileIcon(item.name)} className="w-full h-full object-contain object-center shrink-0" />
+       </div>
+    }
+       </div>
+       </div>
+        </div>
+      ) : (
+       null
+      )}
   </div>
 
   {/* Uploading row (INLINE, BELOW NAME) */}
