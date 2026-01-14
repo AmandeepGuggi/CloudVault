@@ -1,29 +1,60 @@
-import { FaStar, FaTrash, FaGoogleDrive, FaHome, FaCloud } from "react-icons/fa";
+import { FaCloud } from "react-icons/fa";
 import {
   FiHome,
-  FiFolder,
   FiTrash2,
   FiStar,
-  FiClock,
-  FiCloudSnow,
-  FiShare,
+
   FiShare2,
 } from "react-icons/fi";
-import { NavLink } from "react-router-dom";
-
-import { HiOutlineHome } from "react-icons/hi2";
-import React from "react";
-
-import NewMenu from "./NewMenu";
+import { NavLink, useNavigate } from "react-router-dom";
+import { useAuth } from "../context/AuthContext.jsx"; 
 import { useEffect, useRef, useState } from "react";
+import { formatBytes } from "../utility";
 export default function Sidebar({
   open,
-  disabled = false,
 
 }) {
+ const { user, loading } = useAuth();
+
+  if (loading) return null;
+  // if (!user) return null;
+  const navigate = useNavigate()
+  const [storageUsed, setStorageUsed] = useState(0)
+   const storageLimit = 200 * 1024 * 1024; // 500 MB in bytes
+ const storagePercentage = Math.min(
+  (storageUsed / storageLimit) * 100,
+  100
+);
+
+const roundedPercentage = storagePercentage.toFixed(1);
 
 
+async function getUser() {
+  try {
+    const response = await fetch("http://localhost:4000/user/", {
+      method: "GET", 
+      credentials: "include",
+    });
 
+    if (!response.ok) {
+      console.error("Unauthorized or failed:", response.status);
+      navigate("/login")
+      return;
+    }
+
+    const data = await response.json(); 
+    setStorageUsed(data.storage)
+   
+  } catch (err) {
+    console.error("Fetch error:", err);
+  }
+}
+
+useEffect(()=> {
+ console.log(user);
+ setStorageUsed(user.storage)
+ getUser()
+},[user])
 
   return (
     <>
@@ -57,21 +88,22 @@ export default function Sidebar({
         <div className={` ${open ? "w-64" : "w-20"} px-6 text-sm mt-auto  flex-col `}>
           <div className="text-gray-500 flex justify-between">
             <p className="uppercase text-[13px] font-semibold ">Storage</p>
-            <p>50.5%</p>
+            <p> {roundedPercentage} %</p>
           </div>
           <div className="w-full bg-gray-300 rounded-2xl overflow-hidden h-2">
-            <div className="bg-kala w-[50%] h-full "></div>
+            <div  style={{ width: `${roundedPercentage}%` }}
+            className={`bg-kala transition-all delay-300 h-full  `}></div>
           </div>
           <div className="text-gray-500 ">
             <p className="text-sm">
-              10.1 GB of 20GB used
+              {formatBytes(storageUsed)} GB of 200MB used
             </p>
           </div>
 
           <div className="uppercase text-center py-2 mt-5 bg-kala text-white rounded">Upgrade Storage</div>
         </div> : <div className="mt-auto flex justify-center pb-4">
   <div className="w-10 h-10 rounded-full bg-gray-300 flex items-center justify-center text-sm font-semibold text-black">
-    50%
+    {roundedPercentage}%
   </div>
 </div>
 }

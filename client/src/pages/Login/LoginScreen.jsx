@@ -23,35 +23,7 @@ const LoginScreen = ({
    const [focus, setFocus] = useState(false);
   const [showPassword, setShowPassword] = useState(false);
 
-  useEffect(() => {
-    function handleMessage(event) {
-      // ✅ SECURITY CHECK
-      if (event.origin !== "http://localhost:4000") return;
 
-      const { data } = event;
-
-      if (data?.message === "success") {
-        // hide loader via state (not DOM)
-        setLoading(false);
-        navigate("/app");
-      }
-    }
-
-    window.addEventListener("message", handleMessage);
-
-    return () => {
-      window.removeEventListener("message", handleMessage);
-    };
-  }, [navigate]);
-
-//   const githubLogin = () => {
-    
-//     const clientId = import.meta.env.VITE_GITHUB_CLIENT_ID;
-//   const redirectUri = "http://localhost:4000/auth/github/callback";
-
-//   window.open('http://localhost:4000/auth/github', "githubAuthWindow", "width=600,height=700");
-   
-// };
 
 const githubLogin = () => {
   const clientId = import.meta.env.VITE_GITHUB_CLIENT_ID;
@@ -72,7 +44,7 @@ const githubLogin = () => {
           <div className="bg-white px-4 py-2 rounded">Loading…</div>
         </div>
       )}
-      <div className="w-full max-w-[480px] bg-white rounded-lg shadow-sm p-10">
+      <div className="w-full max-w-120 bg-white rounded-lg shadow-sm p-10">
         <h1 className="text-2xl font-bold text-center text-gray-900 mb-4">
           Sign In to Your Account
         </h1>
@@ -174,6 +146,7 @@ const githubLogin = () => {
             <GoogleLogin
             onSuccess={async (credentialResponse) => {
               const data = await loginWithGoogle(credentialResponse.credential);
+              console.log(data);
               if (data.email) {
                 // Handle failed login
                 navigate("/app");

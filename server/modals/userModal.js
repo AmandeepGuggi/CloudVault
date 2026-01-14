@@ -24,6 +24,9 @@ const userSchema = new Schema({
       required: true,
       default: "local",
     },
+    storageUsed: {
+        type: Number
+    },
     //  providerId: {
     //   type: String,
     //   default: null, // Google sub

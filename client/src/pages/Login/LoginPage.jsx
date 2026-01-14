@@ -8,9 +8,7 @@ import { BASE_URL } from "../../utility";
 export default function LoginPage() {
   const navigate = useNavigate();
 
-const [showOtpModal, setShowOtpModal] = useState(false);
 const [otp, setOtp] = useState("");
-const [isSendingOtp, setIsSendingOtp] = useState(false);
 const [isVerifyingOtp, setIsVerifyingOtp] = useState(false);
 
   const [isSubmitting, setIsSubmitting] = useState(false);
@@ -20,7 +18,7 @@ const [isVerifyingOtp, setIsVerifyingOtp] = useState(false);
       rememberMe: false
     });
     const [serverError, setServerError] = useState("");
-    const hasError = Boolean(serverError);
+   
   
     // const handleChange = (e) => {
     //   const { name, value } = e.target;

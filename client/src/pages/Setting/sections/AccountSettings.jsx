@@ -122,19 +122,10 @@ useEffect(()=>{
         </div>
 
         <div className="border-t border-gray-200 pt-6">
-          <h3 className="text-lg font-semibold text-gray-900 mb-4">Change Password</h3>
+          <h3 className="text-lg font-semibold text-gray-900 mb-4">Set Password for mannual Login</h3>
 
           <div className="space-y-4">
-            <div>
-              <label className="block text-sm font-medium text-gray-700 mb-2">Current Password</label>
-              <input
-                type="password"
-                name="currentPassword"
-                value={formData.currentPassword}
-                onChange={handleChange}
-                className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-              />
-            </div>
+           
 
             <div>
               <label className="block text-sm font-medium text-gray-700 mb-2">New Password</label>
@@ -164,7 +155,7 @@ useEffect(()=>{
           type="submit"
           className="px-6 py-2 bg-blue-600 text-white rounded-lg font-medium hover:bg-blue-700 transition-colors"
         >
-          Update Password
+          Set Password
         </button>
       </form>
 

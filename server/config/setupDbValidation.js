@@ -78,6 +78,7 @@ async function run() {
             extension: { bsonType: "string", minLength: 1, maxLength: 10 },
             size: { bsonType: "int", minimum: 0 },
             mimeType: {bsonType: "string"},
+            storageUsed: {bsonType: "int"},
             preview: {bsonType: "string"},
             userId: { bsonType: "objectId" },
             parentDirId: { bsonType: "objectId" },

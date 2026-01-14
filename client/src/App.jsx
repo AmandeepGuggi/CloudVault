@@ -1,7 +1,6 @@
 import Dashboard from "./Dashboard"
 import LandingPage from "./pages/LandingPage"
-import Login from "./pages/Login"
-import Register from "./pages/Register"
+
 import { createBrowserRouter, RouterProvider } from 'react-router-dom'
 import LoginPage from "./pages/Login/LoginPage"
 import RegisterPage from "./pages/Register/RegisterPage"

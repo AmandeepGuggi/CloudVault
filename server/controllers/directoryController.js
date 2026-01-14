@@ -178,6 +178,8 @@ export const getBinFolders = async (req, res) => {
   res.json(folders);
 };
 
+
+
 export async function getDirectoryBreadcrumbs(req, res) {
   const { id } = req.params;
   const userId = req.user._id;
@@ -193,13 +195,17 @@ export async function getDirectoryBreadcrumbs(req, res) {
     }).select("_id name parentDirId");
 
     if (!dir) break;
+     if(dir.parentDirId!==null){
+       breadcrumbs.push({
+         id: dir._id,
+         name: dir.name,
+        });
+      }
+      else if(dir.parentDirId===null){
+        breadcrumbs.push({ id: null, name: "All Files" });
+      }
+      currentId = dir.parentDirId;
 
-    breadcrumbs.push({
-      id: dir._id,
-      name: dir.name,
-    });
-
-    currentId = dir.parentDirId;
   }
 
   // Virtual root

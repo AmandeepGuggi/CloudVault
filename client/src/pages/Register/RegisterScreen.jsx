@@ -4,12 +4,31 @@ import { GoogleLogin } from '@react-oauth/google'
 import { GithubIcon } from "../../components/Icons/GithubIcon";
 import { useNavigate } from 'react-router-dom';
 import { loginWithGoogle } from '../../utility';
+import FloatingInput from '../../components/FloatingInput';
+import { MdEmail } from 'react-icons/md';
+import { FiMail } from "react-icons/fi";
+
+import { useState } from 'react';
+import { Eye, EyeOff } from "lucide-react";
+import { FaUser } from "react-icons/fa";
 
 const RegisterScreen = ({handleSendOtp, handleInputChange, fullnameTxt, emailTxt, passwordTxt, isSending, navigateToScreen, serverError}) => {
   const navigate = useNavigate()
+    const [focus, setFocus] = useState(false);
+    const [showPassword, setShowPassword] = useState(false);
+  const githubLogin = () => {
+  const clientId = import.meta.env.VITE_GITHUB_CLIENT_ID;
+  const redirectUri = "http://localhost:4000/auth/github/callback";
+
+  window.location.href =
+    `https://github.com/login/oauth/authorize` +
+    `?client_id=${clientId}` +
+    `&redirect_uri=${redirectUri}` +
+    `&scope=user:email`;
+};
   return (
-      <div className="flex items-center justify-center px-4 py-16">
-        <div className="w-full max-w-md bg-white rounded-lg shadow-sm p-12">
+      <div className="flex items-center justify-center px-4 py-">
+        <div className="w-full max-w-120 bg-white rounded-lg shadow-sm p-8">
           <h1 className="text-3xl font-bold text-center text-gray-900 mb-8">
             Create Your Account
           </h1>
@@ -17,54 +36,67 @@ const RegisterScreen = ({handleSendOtp, handleInputChange, fullnameTxt, emailTxt
           <form className="space-y-6" onSubmit={handleSendOtp} >
             {/* Full Name */}
             <div>
-              <label htmlFor="fullname" className="block text-sm font-semibold text-gray-700 mb-2">
-                Full Name
-              </label>
-              <input
-                id="fullname"
-                type="text"
-                name="fullname"
-                value={fullnameTxt}
-                onChange={(e)=> {handleInputChange(e)}}
-                placeholder="Enter your full name"
-                className="w-full h-12 px-4 border border-gray-300 rounded text-base focus:outline-none focus:border-[#0061D5]"
-                required
-              />
+            
+              <FloatingInput
+                          icon={<FaUser />}
+                          name="fullnameTxt"
+                          value={fullnameTxt}
+                          onChange={handleInputChange}
+                          label="Full name"
+                          type="text"
+                          />
             </div>
 
             {/* Email */}
             <div>
-              <label htmlFor="email" className="block text-sm font-semibold text-gray-700 mb-2">
-                Email Address
-              </label>
-              <input
-                id="email"
-                type="email"
-                name="email"
-                value={emailTxt}
-                onChange={handleInputChange}
-                placeholder="Enter your email"
-                className="w-full h-12 px-4 border border-gray-300 rounded text-base focus:outline-none focus:border-[#0061D5]"
-                required
-              />
+              
+              <FloatingInput 
+                          icon={<FiMail />}
+                          name="email"
+                          value={emailTxt}
+                          onChange={handleInputChange}
+                          label="Email Address"
+                          type="email"
+                          />
             </div>
 
             {/* Password */}
-            <div>
-              <label htmlFor="password" className="block text-sm font-semibold text-gray-700 mb-2">
-                Password
-              </label>
-              <input
-                id="password"
-                type="password"
-                name="password"
-                value={passwordTxt}
-                onChange={handleInputChange}
-                placeholder="Create a password"
-                className="w-full h-12 px-4 border border-gray-300 rounded text-base focus:outline-none focus:border-[#0061D5]"
-                required
-              />
-            </div>
+
+             <div className="relative mb-6 w-full">
+            <label
+              className={`absolute transition-all duration-200 pointer-events-none 
+        ${
+          focus
+            ? "-top-3 text-sm text-gray-500"
+            : "top-3 text-base text-gray-400"
+        }`}
+            >
+              Password
+            </label>
+
+            <input
+              value={passwordTxt}
+              onChange={handleInputChange}
+              type={showPassword ? "text" : "password"}
+              name="password"
+              onFocus={() => setFocus(true)}
+              onBlur={(e) => e.target.value === "" && setFocus(false)}
+              className="w-full border-b-[1.5px] border-gray-300 focus:border-black outline-none py-3 text-gray-800 pr-8"
+              required
+            />
+            <span
+              onClick={() => setShowPassword(!showPassword)}
+              className="absolute right-0 top-3"
+            >
+              {showPassword ? (
+                <Eye className="w-5 text-gray-800" />
+              ) : (
+                <EyeOff className="w-5 text-gray-800" />
+              )}
+            </span>
+
+            {/* {<EyeOff /> && <span className="absolute right-0 top-3">{<Eye className="text-gray-400" />}</span>} */}
+          </div>
 
             {/* Terms */}
             <div className="flex items-start gap-2">
@@ -106,28 +138,42 @@ const RegisterScreen = ({handleSendOtp, handleInputChange, fullnameTxt, emailTxt
               </div>
             </div>
 
-            {/* OAuth */}
-            <div className="space-y-3">
-             
-              <GoogleLogin
-  onSuccess={credentialResponse => {
-    loginWithGoogle(credentialResponse)
-    console.log(credentialResponse);
-  }}
-  onError={() => {
-    console.log('Login Failed');
-  }}
-/>;
-
-
-              <button
-                type="button"
-                className="w-full h-12 flex items-center justify-center gap-3 border border-gray-300 rounded hover:bg-gray-50 transition-colors"
-              >
-                <GithubIcon />
-                <span className="text-gray-700 font-medium">Sign up with GitHub</span>
-              </button>
-            </div>
+            <div className="my-1  gap-2 ">
+                    
+          
+                    <div className="flex w-full mb-2"> 
+                      <GoogleLogin
+                      onSuccess={async (credentialResponse) => {
+                        const data = await loginWithGoogle(credentialResponse.credential);
+                        console.log(data);
+                        if (data.email) {
+                          // Handle failed login
+                          navigate("/app");
+                          return;
+                        }
+                        return;
+                      }}
+                      width="500px"
+                      onError={() => {
+                        console.log("Login Failed");
+                      }}
+                      useOneTap
+                      
+                      logo_alignment="center"
+                      
+                    />
+                    </div>
+          
+                    <button onClick={githubLogin}
+                      type="button"
+                      className="w-full h-10 flex items-center justify-center gap-3 bg-white border border-gray-300 rounded hover:bg-gray-50 transition-colors"
+                    >
+                      <GithubIcon />
+                      <span className="text-gray-700 text-sm font-medium text-nowrap">
+                        Sign in with Github
+                      </span>
+                    </button>
+                  </div>
 
             {/* Footer */}
             <div onClick={()=>navigate("/login")} className="text-center pt-4 border-t border-gray-200 mt-6">

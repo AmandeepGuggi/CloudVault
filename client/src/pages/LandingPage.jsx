@@ -1,4 +1,5 @@
 import { Eye, FolderOpen, Clock, Shield, Check, Sparkles, Search } from "lucide-react"
+import { FaCloud } from "react-icons/fa";
 import { useNavigate } from "react-router-dom"
 
 function LandingPage() {
@@ -11,7 +12,7 @@ function LandingPage() {
           <div className="flex items-center justify-between">
             <div className="flex items-center gap-2.5">
               <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-gradient-to-br from-blue-500 to-blue-600 shadow-lg shadow-blue-500/30">
-                <FolderOpen className="h-5 w-5 text-white" />
+                <FaCloud className="h-5 w-5 text-white" />
               </div>
               <span className="text-xl font-bold tracking-tight text-slate-900">CloudVault</span>
             </div>

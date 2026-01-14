@@ -9,7 +9,6 @@ import { AppearanceSettings } from "./sections/AppearanceSettings"
 import Sidebar from "./Sidebar"
 import { useNavigate } from "react-router-dom";
 import SettingHeader from "./sections/SettingHeader"
-import Topbar from "../../components/Topbar"
 
 
 // import Sidebar from "./Sidebar"
@@ -21,7 +20,7 @@ import Topbar from "../../components/Topbar"
 // import { AppearanceSettings } from "./appearance-settings"
 
 export function SettingsLayout() {
-  const [activeTab, setActiveTab] = useState("profile")
+  const [activeTab, setActiveTab] = useState("accounts")
   const navigate = useNavigate()
 
   const renderContent = () => {

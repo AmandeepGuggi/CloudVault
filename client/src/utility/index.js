@@ -105,6 +105,7 @@ export const loginWithGoogle = async (credentials) => {
     body: JSON.stringify({ idToken: credentials}),
   })
   const data = await response.json();
+  console.log(data);
   return data.user
 }
 

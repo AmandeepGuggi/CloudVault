@@ -3,11 +3,15 @@ import NameModal from "../components/NameModal.jsx";
 import { useParams, useNavigate,  } from "react-router-dom";
 import { getUniquename, BASE_URL, getFileIcon, formatBytes } from "../utility";
 import { Filter, FolderPlus, LayoutGrid, List, MoreVertical, Upload } from "lucide-react";
-import { FaFolder, FaStar } from "react-icons/fa";
+import { FaFolder, FaStar, FaHome } from "react-icons/fa";
 import ContextMenu from "../components/ContextMenu.jsx";
+import { useAuth } from "../context/AuthContext.jsx"; 
+
+
 
 
 export default function Home() {
+  const { refreshUser } = useAuth();
   const [view, setView] = useState("grid"); 
   const [sortBy, setSortBy] = useState("name"); 
 const [sortOrder, setSortOrder] = useState("asc"); 
@@ -134,6 +138,11 @@ const [directoryName, setDirectoryName] = useState("My Files");
     useEffect(() => {
         getDirectoryItems();
 
+        if (!dirId) {
+    setBreadcrumbs([{ id: null, name: "All Files" }]);
+    return;
+  }
+
          (async () => {
     const crumbs = await buildBreadcrumbs(dirId || null);
   })();
@@ -201,13 +210,14 @@ const [directoryName, setDirectoryName] = useState("My Files");
       /**
        * Upload items in queue one by one
        */
-      function processUploadQueue(queue) {
+    async function processUploadQueue(queue) {
         if (queue.length === 0) {
           // No more items to upload
           setIsUploading(false);
           setUploadQueue([]);
           setTimeout(() => {
             getDirectoryItems();
+           refreshUser()
           }, 1000);
           return;
         }
@@ -729,11 +739,13 @@ return 0;
 
     <div className="px-3 pb-1 w-full bg-white border border-gray-300  rounded">
   <nav className="flex items-center text-sm text-gray-500 gap-1">
+    <FaHome className="flex items-center mt-1.5" />
     {breadcrumbs.map((item, idx) => {
       const isLast = idx === breadcrumbs.length - 1;
 
       return (
         <div key={item.id ?? "root"} className="flex pt-2 items-center gap-1">
+          
           {!isLast ? (
             <span
               onClick={() =>
@@ -774,7 +786,7 @@ return 0;
   !item.isDirectory && item.id.startsWith("temp-");
 const uploadProgress = progressMap[item.id] || 0;
 const icon = getFileIcon(item.name)
-debugger
+
       return (
       
     <div

@@ -34,12 +34,11 @@ const popupRef = useRef(null);
   
 }
 
-console.log(devices);
 useEffect(() => {
   fetchLoggedInDevices()
   devices.map((dev) => {
     if(!dev.isCurrentDevice){
-      setCount(count++)
+    
     }
     if(count>0){
       setHasNotification(true)

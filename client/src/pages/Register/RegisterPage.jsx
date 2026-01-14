@@ -6,6 +6,8 @@ import {BASE_URL} from "../../utility/index"
 import RegisterScreen from "./RegisterScreen";
 import VerifyOtp from "./VerifyOtp";
 
+
+
 export default function RegisterPage() {
 
   const navigate = useNavigate();
@@ -15,9 +17,9 @@ export default function RegisterPage() {
 
 
  const [formData, setFormData] = useState({
-    fullname: "Amandeep Kaur",
-    email: "a2guggi11052002@gmail.com",
-    password: "Abcd@12345",
+    fullname: "",
+    email: "",
+    password: "",
   });
 
   const [otp, setOtp] = useState("");
@@ -313,7 +315,9 @@ else if(data.status === 201){
     </div>
    )}
 
+
       {/* Main */}
+
        {renderScreen()}
     
     </div>

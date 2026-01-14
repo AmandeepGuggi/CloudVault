@@ -9,48 +9,10 @@ import mongoose from "mongoose";
 import sharp from 'sharp'
 import { execFile } from "child_process";
 import { promisify } from "util";
+import User from "../modals/userModal.js";
 const execFileAsync = promisify(execFile);
 
 
-
-
-// export const createFile = async(req, res, next) => {
-//   const user = req.user
- 
-//   let _id = req.params.parentDirId ? req.params.parentDirId : req.user.rootDirId;
-//   const parentDirData = await Directory.findOne({ _id });
-//   if(!parentDirData){
-//     return res.status(404).json({error: "Parent directory does not exists"})
-//   }
-  
-//  const filename = req.headers.filename || "untitled";
-//  const extension = path.extname(filename);
-
-//     try {
-//       const insertedFile = await Files.insertOne({
-//       extension,
-//       name: filename,
-//       parentDirId:  parentDirData._id,
-//       userId: user._id
-//     })
-//     const fullFileName = `${insertedFile._id.toString()}${extension}`;
-//     const writeStream = createWriteStream(`./storage/${fullFileName}`);
-//     req.pipe(writeStream);
-
-//       req.on("end", async () => {
-//         return res.status(201).json({ message: "File Uploaded" });
-//       })
-
-//       req.on("error", async () => {
-//         Files.deleteOne({_id: insertedFile._id })
-//         return res.status(404).json({ message: "could not upload file" });
-//       })
-
-//     } catch (err) {
-//       next(err);
-//     }
-
-//   }
 
 export const createFile = async (req, res, next) => {
   const user = req.user;
@@ -94,6 +56,11 @@ export const createFile = async (req, res, next) => {
         { $set: { size: bytesWritten, mimeType: finalMime } }
       );
       let previewPath = null;
+
+      await User.updateOne(
+    { _id: user._id },
+    { $inc: { storageUsed: bytesWritten } }
+  );
 
   // ONLY images get thumbnails
   if (finalMime.startsWith("image/")) {
@@ -275,6 +242,11 @@ export const updateFile = async (req, res, next) => {
 export const deleteFilePermanently =  async (req, res, next) => {
   const { id } = req.params;
   const fileData = await Files.findOne({_id: id, userId: req.user._id, isDeleted: true});
+ console.log("deleted file data", fileData);
+ await User.updateOne(
+  { _id: req.user._id },
+  { $inc: { storageUsed: -fileData.size } }
+);
 
   // Check if file exists
   if (!fileData) {
