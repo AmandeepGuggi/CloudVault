@@ -22,6 +22,7 @@ const LoginScreen = ({
   const [loading, setLoading] = useState(false);
    const [focus, setFocus] = useState(false);
   const [showPassword, setShowPassword] = useState(false);
+  const [loginError, setLoginError] = useState("")
 
 
 
@@ -147,7 +148,11 @@ const githubLogin = () => {
             onSuccess={async (credentialResponse) => {
               const data = await loginWithGoogle(credentialResponse.credential);
               console.log(data);
-              if (data.email) {
+              if(data.error){
+                setLoginError(data.error)
+                return
+              }
+              if (data.user) {
                 // Handle failed login
                 navigate("/app");
                 return;
@@ -168,13 +173,14 @@ const githubLogin = () => {
           <button onClick={githubLogin}
             type="button"
             className="w-full h-10 flex items-center justify-center gap-3 bg-white border border-gray-300 rounded hover:bg-gray-50 transition-colors"
-          >
+            >
             <GithubIcon />
             <span className="text-gray-700 text-sm font-medium text-nowrap">
               Sign in with Github
             </span>
           </button>
         </div>
+            {loginError && <p className="text-red-600 text-sm text-center m-3">{loginError}</p> }
 
         {/* Footer */}
         <p className="text-center text-sm text-gray-600 pt-4 ">

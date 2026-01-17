@@ -15,10 +15,19 @@ export const AuthProvider = ({ children }) => {
         method: "GET",
         credentials: "include"
       });
+      if (res.status === 401 || res.status === 403) {
+      setUser(null);
+      return null;
+    }
+      
+      if (!res.ok) {
+      setUser(null);
+      return null;
+    }else{
       const user = await res.json()
-
       setUser(user);
       return user;
+    }
     } catch (err) {
       setUser(null);
       return null;

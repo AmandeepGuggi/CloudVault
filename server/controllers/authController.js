@@ -60,9 +60,14 @@ export const loginWithGoogle = async (req, res, next) => {
   const { email } = userData;
 
   let user = await User.findOne({ email })
-    .select("-__v -createdAt -updatedAt -authProvider")
-    .lean();
+    .select("-__v -createdAt -updatedAt -authProvider ")
+    
   if (user) {
+    console.log(user);
+  if(user.deleted){
+   return res.status(403).json({error: "your account is deleted contact admin"})
+  }
+
     const MAX_SESSIONS = 3;
     const activeSessions = await Session.find({
       userId: user._id,

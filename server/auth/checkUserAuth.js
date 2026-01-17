@@ -11,7 +11,7 @@ export default async function checkAuth(req, res, next) {
   const session = await Session.findById(sid)
 
    if(!session) {
-     return res.status(401).json({ error: "Not logged!" });
+     return res.status(401).json({ error: "Not logged in!", user: null });
     }
 
   const user = await User.findOne({ _id: session.userId}).lean();

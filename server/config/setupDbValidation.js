@@ -58,6 +58,7 @@ async function run() {
             rootDirId: { bsonType: ["objectId", "null"] },
             createdAt: { bsonType: "date" },
             updatedAt: { bsonType: "date" },
+            deleted: {bsonType: "bool"},
             __v: {bsonType: "int"}
           },
           additionalProperties: true

@@ -33,6 +33,7 @@ const handleConfirm = async () => {
   }
 
   if (type === "delete") {
+    console.log("hi");
     await deleteSpecificUser(userId);
   }
 
@@ -74,6 +75,8 @@ const handleCancel = () => {
   }catch(err){
     setLoading(false)
     console.log("cannot delete", err);
+  }finally{
+    setLoading(false)
   }
   }
 
@@ -102,6 +105,7 @@ const handleCancel = () => {
           navigate("/app")
         }
         const data = await response.json()
+       
         setSelt(data)
         setLoading(false)
     }
@@ -147,11 +151,11 @@ if (self.role === "User") {
                   Logout
                 </button>
               </td>
-              { self.role==="Admin" && user.email !== self.email && <td>
+              { self.role==="Admin" &&  <td>
                 <button
                   className="delete-button"
                   onClick={() => openConfirm(user.id, "delete", user.name)}
-                  disabled={!user.isLoggedIn}
+                  disabled={user.email === self.email}
                 >
                   Delete
                 </button>

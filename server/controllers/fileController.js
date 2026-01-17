@@ -199,24 +199,6 @@ export const previewFile = async (req, res) => {
 };
 
 
-// export const updateFile =  async (req, res, next) => {
-//   const { id } = req.params;
-//   const fileData = await Files.findOne({_id: id, userId: req.user._id})
-
-//   // Check if file exists
-//   if (!fileData) {
-//     return res.status(404).json({ error: "File not found!" });
-//   }
-
-//   // Perform rename
-//   try {
-//     await Files.updateOne({_id: id, userId: req.user._id}, {$set: {name: req.body.newFilename}})
-//     return res.status(200).json({ message: "Renamed" });
-//   } catch (err) {
-//     err.status = 500;
-//     next(err);
-//   }
-// }
 export const updateFile = async (req, res, next) => {
   const { id } = req.params;
 
@@ -255,7 +237,7 @@ export const deleteFilePermanently =  async (req, res, next) => {
 
   try {
     // Remove file from /storage
-    await rm(`./storage/${id}${fileData.extension}`, { recursive: true });
+    await rm(`./storage/${id}${fileData.extension}`);
     await Files.findByIdAndDelete(id)
     return res.status(200).json({ message: "File Deleted Successfully" });
   } catch (err) {

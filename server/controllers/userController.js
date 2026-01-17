@@ -201,7 +201,7 @@ export const logoutAll = async (req, res) => {
 };
 
 export const getAllUsers = async (req, res) => {
-  const allUsers = await User.find().lean()
+  const allUsers = await User.find({deleted: false}).lean()
   const allSessions = await Session.find().lean()
   const allSessionsId = allSessions.map(({userId})=> userId.toString() )
   const allSessionsUserIdSet = new Set(allSessionsId)
@@ -227,12 +227,17 @@ export const logoutSpecificUser = async (req, res) => {
 }
 export const delteSpecificUser = async (req, res) => {
     const {id} = req.params
+    if(req.user._id.toString()=== id){
+      return res.status(403).json({error: "you cannot delete yourself"})
+    }
 
   try{
+    await User.updateOne({ _id: id },
+  { $set: { deleted: true } })
     await Session.deleteMany({ userId: id });
-    await User.deleteOne({_id: id})
-    await Directory.deleteMany({ userId: id })
-    await Files.deleteMany({ userId: id })
+    // await User.deleteOne({_id: id})
+    // await Directory.deleteMany({ userId: id })
+    // await Files.deleteMany({ userId: id })
   res.status(204).end();
   }catch(err){
     console.log("error deleting specific user", err);

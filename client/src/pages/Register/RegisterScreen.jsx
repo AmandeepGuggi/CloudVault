@@ -16,6 +16,7 @@ const RegisterScreen = ({handleSendOtp, handleInputChange, fullnameTxt, emailTxt
   const navigate = useNavigate()
     const [focus, setFocus] = useState(false);
     const [showPassword, setShowPassword] = useState(false);
+      const [loginError, setLoginError] = useState("")
   const githubLogin = () => {
   const clientId = import.meta.env.VITE_GITHUB_CLIENT_ID;
   const redirectUri = "http://localhost:4000/auth/github/callback";
@@ -146,7 +147,11 @@ const RegisterScreen = ({handleSendOtp, handleInputChange, fullnameTxt, emailTxt
                       onSuccess={async (credentialResponse) => {
                         const data = await loginWithGoogle(credentialResponse.credential);
                         console.log(data);
-                        if (data.email) {
+                        if(data.error){
+                setLoginError(data.error)
+                return
+              }
+                        if (data.user) {
                           // Handle failed login
                           navigate("/app");
                           return;
@@ -174,6 +179,7 @@ const RegisterScreen = ({handleSendOtp, handleInputChange, fullnameTxt, emailTxt
                       </span>
                     </button>
                   </div>
+                   {loginError && <p className="text-red-600 text-sm text-center m-3">{loginError}</p> }
 
             {/* Footer */}
             <div onClick={()=>navigate("/login")} className="text-center pt-4 border-t border-gray-200 mt-6">

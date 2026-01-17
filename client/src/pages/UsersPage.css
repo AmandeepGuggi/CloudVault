@@ -45,6 +45,14 @@
 .logout-button:not(:disabled):hover {
   background-color: #0056b3;
 }
+.delete-button:disabled {
+  background-color: #ccc;
+  cursor: not-allowed;
+}
+
+.delete-button:not(:disabled):hover {
+  background-color: #b30024;
+}
 
 .delete-button{
   background-color: red;

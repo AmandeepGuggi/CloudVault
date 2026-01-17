@@ -51,6 +51,10 @@ const userSchema = new Schema({
     picture: {
         type: String,
         default: "https://encrypted-tbn0.gstatic.com/images?q=tbn:ANd9GcRYfAWbelVtedtn8mYCajf5bYv6PJgyMxOR2g&s",
+    },
+    deleted: {
+        type: Boolean,
+        default: false
     }
 }, {
     strict: "throw",
