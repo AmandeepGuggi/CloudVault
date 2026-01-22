@@ -15,9 +15,9 @@ export default function RoleAssignmentModal({ user, onClose, onConfirm }) {
   const [confirmed, setConfirmed] = useState(false)
 
   const handleAssign = () => {
-    if (confirmed) {
-      onConfirm()
-    }
+    if (confirmed && selectedRole !== user.role) {
+    onConfirm(selectedRole);
+  }
   }
 
   return (

@@ -5,6 +5,7 @@ import User from "../modals/userModal.js"
 import { rm } from "fs/promises";
 import path from "path";
 import mongoose from "mongoose";
+import { ROLE_HIERARCHY } from "../config/roles.js";
 
 
 
@@ -146,3 +147,51 @@ export const restoreDeletedUser = async (req, res) => {
     res.json({err: "error restoring user"})
   }
 }
+
+
+export const changeUserRole = async (req, res) => {
+  const requester = req.user;          // trusted
+  const targetUserId = req.params.id;
+  const { newRole } = req.body;
+
+  if (!ROLE_HIERARCHY[newRole]) {
+    return res.status(400).json({ error: "Invalid role" });
+  }
+
+  const targetUser = await User.findById(targetUserId);
+  console.log(targetUser, requester, newRole);
+  if (!targetUser) {
+    return res.status(404).json({ error: "User not found" });
+  }
+
+  const requesterLevel = ROLE_HIERARCHY[requester.role];
+  const targetCurrentLevel = ROLE_HIERARCHY[targetUser.role];
+  const targetNewLevel = ROLE_HIERARCHY[newRole];
+
+  // ❌ cannot modify users with equal or higher role
+  if (targetCurrentLevel >= requesterLevel) {
+    return res.status(403).json({
+      error: "Cannot modify user with equal or higher role",
+    });
+  }
+
+  // ❌ cannot assign role equal or higher than self
+  if (targetNewLevel >= requesterLevel) {
+    return res.status(403).json({
+      error: "Cannot assign role equal or higher than your own",
+    });
+  }
+
+  // ✅ owner is supreme exception
+  if (requester.role === "owner") {
+    targetUser.role = newRole;
+    await targetUser.save();
+    return res.json({ message: "Role updated (owner override)" });
+  }
+
+  // Extra safety (admin/editor limits naturally enforced by hierarchy)
+  targetUser.role = newRole;
+  await targetUser.save();
+
+  return res.json({ message: "Role updated successfully" });
+};

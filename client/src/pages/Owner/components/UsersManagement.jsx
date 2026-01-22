@@ -7,40 +7,7 @@ import FileAccessModal from './modals/FileAccessModal' // Import FileAccessModal
 import ForceLogoutModal from './modals/ForceLogoutModal';
 import { BASE_URL, formatBytes } from '../../../utility';
 
-const mockUsers = [
-  {
-    id: '1',
-    name: 'Alice Johnson',
-    email: 'alice@cloudvault.com',
-    role: 'Editor',
-    storage: '45 GB / 1 TB',
-    avatar: 'AJ'
-  },
-  {
-    id: '2',
-    name: 'Bob Smith',
-    email: 'bob@cloudvault.com',
-    role: 'Viewer',
-    storage: '12 GB / 100 GB',
-    avatar: 'BS'
-  },
-  {
-    id: '3',
-    name: 'Carol White',
-    email: 'carol@cloudvault.com',
-    role: 'Admin',
-    storage: '234 GB / 1 TB',
-    avatar: 'CW'
-  },
-  {
-    id: '4',
-    name: 'David Brown',
-    email: 'david@cloudvault.com',
-    role: 'Editor',
-    storage: '89 GB / 500 GB',
-    avatar: 'DB'
-  }
-]
+
 
 const roleColors = {
   Owner: 'bg-purple-100 text-purple-800',
@@ -51,14 +18,16 @@ const roleColors = {
 
 
 export default function UsersManagement({ onSelectUser }) {
-  const [users, setUsers] = useState(mockUsers)
+  const [users, setUsers] = useState([])
   const [isLoading, setIsLoading] = useState(false)
   const [showRoleModal, setShowRoleModal] = useState(false)
   const [showDeleteModal, setShowDeleteModal] = useState(false)
   const [showLogoutModal, setShowLogoutModal] = useState(false)
   const [showFileModal, setShowFileModal] = useState(false)
   const [selectedUser, setSelectedUser] = useState(null)
-  const [deleteReason, setDeleteReason] = useState("")
+  const [deleteReason, setDeleteReason] = useState("");
+  const [serverError, setServerError] = useState("")
+  const [secondsLeft, setSecondsLeft] = useState(7);
 
   const handleRoleChange = (userId) => {
     setSelectedUser(users.find(u => u.id === userId))
@@ -89,6 +58,10 @@ export default function UsersManagement({ onSelectUser }) {
 },
       body: JSON.stringify({deleteReason})
     })
+    if(!response.ok){
+      const data = await response.json()
+      setServerError(data.error)
+    }
     if(response.ok){
 
       getAllUsers()
@@ -112,8 +85,11 @@ export default function UsersManagement({ onSelectUser }) {
       const response = await fetch(`${BASE_URL}/owner/users/${selectedUser.id}/logout`,{
         method: "POST",
       credentials: "include"
-    })
-    const data = await response.json()
+    });
+    if(!response.ok){
+      const data = await response.json()
+      setServerError(data.error)
+    }
     getAllUsers()
     setIsLoading(false)
     setShowLogoutModal(false)
@@ -125,15 +101,57 @@ export default function UsersManagement({ onSelectUser }) {
     setShowLogoutModal(false)
   }
 
+  const ChangeRoleSubmit = async (newRole) => {
+    console.log(newRole);
+    try {
+         const response = await fetch(`${BASE_URL}/owner/users/${selectedUser.id}/role`,{
+        method: "PATCH",
+      credentials: "include",
+        headers: {
+          "Content-Type": "application/json",
+        },
+       body: JSON.stringify({ newRole }),
+    })
+
+    if(!response.ok){
+      const data = await response.json()
+      setServerError(data.error)
+    }
+    getAllUsers()
+    setShowRoleModal(false)
+    }catch(err){
+      console.log("err changing role", err);
+    }
+  }
+
+useEffect(() => {
+  if (!serverError || secondsLeft === 0) return;
+
+  const interval = setInterval(() => {
+    setSecondsLeft(prev => prev - 1);
+  }, 1000);
+
+  return () => clearInterval(interval);
+}, [serverError, secondsLeft]);
+
+useEffect(() => {
+  if (secondsLeft === 0 && serverError) {
+    setServerError("");
+  }
+}, [secondsLeft, serverError]);
+
+
+
   async function getAllUsers() {
         setIsLoading(true)
         const response = await fetch(`${BASE_URL}/owner/users/getAllUsers`, {
           method: "GET",
           credentials: "include"
           })
-          if(response.status===403){
-            navigate("/app")
-          }
+        if(!response.ok){
+      const data = await response.json()
+      setServerError(data.error)
+    }
           const data = await response.json()
           setUsers(data)
           setIsLoading(false)
@@ -230,17 +248,38 @@ export default function UsersManagement({ onSelectUser }) {
           </table>
         </div>
 
+
         <div className="mt-4 text-xs text-[color:var(--muted-foreground)]">
           <p>All user actions are audited and logged</p>
         </div>
       </div>
+ {serverError && (
+  <div onClick={() => setServerError("")} className="">
+    <div className="">
+      {serverError}
+    </div>
+  </div>
+)}
+
+{serverError && (
+  <div onClick={() => setServerError("")}  className="fixed top-6 left-1/2 -translate-x-1/2 z-[9999]">
+    <div className="bg-red-200 border border-red-600 text-red-900 px-6 py-3 rounded-md shadow-lg text-sm font-medium">
+      <span>{serverError}</span>
+      <span className="text-xs mx-2 opacity-70">
+        ({secondsLeft}s)
+      </span>
+    </div>
+  </div>
+)}
+
+
 
       {/* Modals */}
       {showRoleModal && selectedUser && (
         <RoleAssignmentModal
           user={selectedUser}
           onClose={() => setShowRoleModal(false)}
-          onConfirm={() => setShowRoleModal(false)}
+          onConfirm={ChangeRoleSubmit}
         />
       )}
 
@@ -251,6 +290,7 @@ export default function UsersManagement({ onSelectUser }) {
           onConfirm={confirmDelete}
           setDeleteReason={setDeleteReason}
           deleteReason={deleteReason}
+          setServerError={setServerError}
         />
       )}
 
@@ -259,6 +299,7 @@ export default function UsersManagement({ onSelectUser }) {
           user={selectedUser}
           onClose={() => setShowLogoutModal(false)}
           onConfirm={confirmLogout}
+          setServerError={setServerError}
         />
       )}
     </>
