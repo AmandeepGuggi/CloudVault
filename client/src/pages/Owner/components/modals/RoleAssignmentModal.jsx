@@ -7,7 +7,7 @@ const roleDescriptions = {
   Owner: 'Full access to all systems and user management.',
   Admin: 'Can manage users, files, and billing. Cannot delete Owner accounts.',
   Editor: 'Can create, edit, and delete personal files. No user management.',
-  Viewer: 'Read-only access to shared files only.'
+  User: 'Read-only access to shared files only.'
 }
 
 export default function RoleAssignmentModal({ user, onClose, onConfirm }) {

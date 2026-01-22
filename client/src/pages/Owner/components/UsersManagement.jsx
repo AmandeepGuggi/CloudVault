@@ -17,7 +17,7 @@ const roleColors = {
 }
 
 
-export default function UsersManagement({ onSelectUser }) {
+export default function UsersManagement({ onSelectUser, setServerError }) {
   const [users, setUsers] = useState([])
   const [isLoading, setIsLoading] = useState(false)
   const [showRoleModal, setShowRoleModal] = useState(false)
@@ -26,8 +26,7 @@ export default function UsersManagement({ onSelectUser }) {
   const [showFileModal, setShowFileModal] = useState(false)
   const [selectedUser, setSelectedUser] = useState(null)
   const [deleteReason, setDeleteReason] = useState("");
-  const [serverError, setServerError] = useState("")
-  const [secondsLeft, setSecondsLeft] = useState(7);
+ 
 
   const handleRoleChange = (userId) => {
     setSelectedUser(users.find(u => u.id === userId))
@@ -124,22 +123,6 @@ export default function UsersManagement({ onSelectUser }) {
     }
   }
 
-useEffect(() => {
-  if (!serverError || secondsLeft === 0) return;
-
-  const interval = setInterval(() => {
-    setSecondsLeft(prev => prev - 1);
-  }, 1000);
-
-  return () => clearInterval(interval);
-}, [serverError, secondsLeft]);
-
-useEffect(() => {
-  if (secondsLeft === 0 && serverError) {
-    setServerError("");
-  }
-}, [secondsLeft, serverError]);
-
 
 
   async function getAllUsers() {
@@ -148,11 +131,10 @@ useEffect(() => {
           method: "GET",
           credentials: "include"
           })
+          const data = await response.json()
         if(!response.ok){
-      const data = await response.json()
       setServerError(data.error)
     }
-          const data = await response.json()
           setUsers(data)
           setIsLoading(false)
       }
@@ -253,24 +235,9 @@ useEffect(() => {
           <p>All user actions are audited and logged</p>
         </div>
       </div>
- {serverError && (
-  <div onClick={() => setServerError("")} className="">
-    <div className="">
-      {serverError}
-    </div>
-  </div>
-)}
 
-{serverError && (
-  <div onClick={() => setServerError("")}  className="fixed top-6 left-1/2 -translate-x-1/2 z-[9999]">
-    <div className="bg-red-200 border border-red-600 text-red-900 px-6 py-3 rounded-md shadow-lg text-sm font-medium">
-      <span>{serverError}</span>
-      <span className="text-xs mx-2 opacity-70">
-        ({secondsLeft}s)
-      </span>
-    </div>
-  </div>
-)}
+
+
 
 
 

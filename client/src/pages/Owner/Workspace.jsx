@@ -6,17 +6,39 @@ import UsersManagement from './components/UsersManagement'
 import DeletedUsers from './components/DeletedUsers'
 import ActivitySummary from './components/ActivitySummary'
 import UserFilesPage from './components/UserFilesPage'
+import { useEffect } from 'react';
 
 export default function App() {
   const [activeTab, setActiveTab] = useState('users')
   const [selectedUser, setSelectedUser] = useState(null)
   const [viewingUserFiles, setViewingUserFiles] = useState(false)
+   const [serverError, setServerError] = useState("kf")
+  const [secondsLeft, setSecondsLeft] = useState(5);
 
+   useEffect(() => {
+     if (!serverError || secondsLeft === 0) return;
+   
+     const interval = setInterval(() => {
+       setSecondsLeft(prev => prev - 1);
+     }, 1000);
+   
+     return () => clearInterval(interval);
+   }, [serverError, secondsLeft]);
+   
+   useEffect(() => {
+     if (secondsLeft === 0 && serverError) {
+       setServerError("");
+     }
+   }, [secondsLeft, serverError]);
+   
+   
   // If viewing user files, show the files page
   if (viewingUserFiles && selectedUser) {
     return (
       <OwnerDashboardLayout>
         <UserFilesPage
+        serverError={serverError}
+        setServerError={setServerError}
           user={selectedUser}
           onBack={() => {
             setViewingUserFiles(false)
@@ -84,18 +106,31 @@ export default function App() {
                 )}
               </button>
             </div>
-
+                {serverError && (
+                  <div onClick={() => {setServerError(""); setSecondsLeft(5)}}  className="fixed top-6 left-1/2 -translate-x-1/2 z-[9999]">
+                    <div className="bg-red-200 border border-red-600 text-red-900 px-6 py-3 rounded-md shadow-lg text-sm font-medium">
+                      <span>{serverError}</span>
+                      <span className="text-xs mx-2 opacity-70">
+                        ({secondsLeft}s)
+                      </span>
+                    </div>
+                  </div>
+                )}
             {/* Content Sections */}
             {activeTab === 'users' && (
               <UsersManagement
+              setServerError={setServerError}
                 onSelectUser={(user) => {
                   setSelectedUser(user)
                   setViewingUserFiles(true)
                 }}
               />
             )}
-            {activeTab === 'deleted' && <DeletedUsers />}
-            {activeTab === 'activity' && <ActivitySummary />}
+            {activeTab === 'deleted' && <DeletedUsers
+              setServerError={setServerError} />}
+            {activeTab === 'activity' && <ActivitySummary 
+            serverError={serverError}
+              setServerError={setServerError} />}
           </div>
 
           {/* Sidebar - Activity Summary */}

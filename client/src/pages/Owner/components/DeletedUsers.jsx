@@ -18,7 +18,7 @@ function formatDateForUser(isoString) {
 }
 
 
-export default function DeletedUsers() {
+export default function DeletedUsers({setServerError}) {
   const [deletedUsers, setDeletedUsers] = useState([])
   const [showRestoreModal, setShowRestoreModal] = useState(false)
   const [showPermanentModal, setShowPermanentModal] = useState(false)
@@ -39,6 +39,10 @@ export default function DeletedUsers() {
           method: "POST",
           credentials: "include"
           })
+          if(!response.ok){
+      const data = await response.json()
+      setServerError(data.error)
+    }
           getDeletedUsers()
     setShowRestoreModal(false)
   }
@@ -50,6 +54,10 @@ export default function DeletedUsers() {
       credentials: "include",
      
     })
+    if(!response.ok){
+      const data = await response.json()
+      setServerError(data.error)
+    }
     if(response.ok){
 
       getDeletedUsers()
@@ -67,10 +75,10 @@ export default function DeletedUsers() {
           method: "GET",
           credentials: "include"
           })
-          if(response.status===403){
-            navigate("/app")
-          }
           const data = await response.json()
+         if(!response.ok){
+      setServerError(data.error)
+    }
           setDeletedUsers(data)
           // setIsLoading(false)
       }
@@ -110,7 +118,7 @@ export default function DeletedUsers() {
                 </tr>
               </thead>
               <tbody>
-                {deletedUsers.map(user => (
+                {deletedUsers.length>0 && deletedUsers.map(user => (
                   <tr key={user.id} className="border-b border-[color:var(--border)] hover:bg-orange-100/50 transition-colors">
                     <td className="px-4 py-4">
                       <div>
