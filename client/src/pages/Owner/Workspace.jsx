@@ -31,10 +31,10 @@ export default function App() {
     <OwnerDashboardLayout>
       <div className="space-y-8">
         {/* Header Section */}
-        <div className="border-b border-[color:var(--border)] pb-6">
-          <h1 className="text-3xl font-bold text-[color:var(--foreground)]">CloudVault Owner Control</h1>
-          <p className="mt-2 text-sm text-[color:var(--muted-foreground)]">
-            Role: <span className="font-semibold text-[color:var(--accent)]">Owner</span> • Full access and accountability required
+        <div className="border-b border-(--border) pb-6">
+          <h1 className="text-3xl font-bold text-(--foreground)">CloudVault Owner Control</h1>
+          <p className="mt-2 text-sm text-(--muted-foreground)">
+            Role: <span className="font-semibold text-(--accent)">Owner</span> • Full access and accountability required
           </p>
         </div>
 

@@ -1,10 +1,11 @@
-'use client';
 
-import { useState } from 'react'
-import { Trash2, FileText, Shield, Edit2, ChevronDown } from 'lucide-react'
+import { useEffect, useState } from 'react'
+import { Trash2, FileText, Shield, UserX, Edit2, ChevronDown, LogOut } from 'lucide-react'
 import RoleAssignmentModal from './modals/RoleAssignmentModal'
 import DeleteUserModal from './modals/DeleteUserModal'
 import FileAccessModal from './modals/FileAccessModal' // Import FileAccessModal
+import ForceLogoutModal from './modals/ForceLogoutModal';
+import { BASE_URL, formatBytes } from '../../../utility';
 
 const mockUsers = [
   {
@@ -13,7 +14,6 @@ const mockUsers = [
     email: 'alice@cloudvault.com',
     role: 'Editor',
     storage: '45 GB / 1 TB',
-    lastActive: '2 hours ago',
     avatar: 'AJ'
   },
   {
@@ -22,7 +22,6 @@ const mockUsers = [
     email: 'bob@cloudvault.com',
     role: 'Viewer',
     storage: '12 GB / 100 GB',
-    lastActive: '1 day ago',
     avatar: 'BS'
   },
   {
@@ -31,7 +30,6 @@ const mockUsers = [
     email: 'carol@cloudvault.com',
     role: 'Admin',
     storage: '234 GB / 1 TB',
-    lastActive: 'Just now',
     avatar: 'CW'
   },
   {
@@ -40,7 +38,6 @@ const mockUsers = [
     email: 'david@cloudvault.com',
     role: 'Editor',
     storage: '89 GB / 500 GB',
-    lastActive: '3 hours ago',
     avatar: 'DB'
   }
 ]
@@ -49,15 +46,19 @@ const roleColors = {
   Owner: 'bg-purple-100 text-purple-800',
   Admin: 'bg-blue-100 text-blue-800',
   Editor: 'bg-green-100 text-green-800',
-  Viewer: 'bg-gray-100 text-gray-800'
+  User: 'bg-gray-100 text-gray-800'
 }
+
 
 export default function UsersManagement({ onSelectUser }) {
   const [users, setUsers] = useState(mockUsers)
+  const [isLoading, setIsLoading] = useState(false)
   const [showRoleModal, setShowRoleModal] = useState(false)
   const [showDeleteModal, setShowDeleteModal] = useState(false)
+  const [showLogoutModal, setShowLogoutModal] = useState(false)
   const [showFileModal, setShowFileModal] = useState(false)
   const [selectedUser, setSelectedUser] = useState(null)
+  const [deleteReason, setDeleteReason] = useState("")
 
   const handleRoleChange = (userId) => {
     setSelectedUser(users.find(u => u.id === userId))
@@ -72,15 +73,75 @@ export default function UsersManagement({ onSelectUser }) {
     onSelectUser(user)
   }
 
-  const handleDelete = (userId) => {
-    setSelectedUser(users.find(u => u.id === userId))
+  const handleDelete = async (userId) => {
+   setSelectedUser(users.find(u => u.id === userId))
     setShowDeleteModal(true)
   }
 
-  const confirmDelete = () => {
-    setUsers(users.filter(u => u.id !== selectedUser.id))
+  const confirmDelete = async () => {
+     try{
+    setIsLoading(true)
+      const response = await fetch(`${BASE_URL}/owner/users/${selectedUser.id}/soft-delete`,{
+        method: "DELETE",
+       credentials: "include",
+      headers: {
+  "Content-Type": "application/json"
+},
+      body: JSON.stringify({deleteReason})
+    })
+    if(response.ok){
+
+      getAllUsers()
+      setIsLoading(false)
+       setShowDeleteModal(false)
+    }
+  }catch(err){
+    setIsLoading(false)
+  }finally{
+    setIsLoading(false)
+  }
     setShowDeleteModal(false)
   }
+  const handleForceLogout = (userId) => {
+    setSelectedUser(users.find(u => u.id === userId))
+    setShowLogoutModal(true)
+  }
+   const confirmLogout = async () => {
+     try{
+    setIsLoading(true)
+      const response = await fetch(`${BASE_URL}/owner/users/${selectedUser.id}/logout`,{
+        method: "POST",
+      credentials: "include"
+    })
+    const data = await response.json()
+    getAllUsers()
+    setIsLoading(false)
+    setShowLogoutModal(false)
+    
+  }catch(err){
+    setIsLoading(false)
+    setShowLogoutModal(false)
+  }
+    setShowLogoutModal(false)
+  }
+
+  async function getAllUsers() {
+        setIsLoading(true)
+        const response = await fetch(`${BASE_URL}/owner/users/getAllUsers`, {
+          method: "GET",
+          credentials: "include"
+          })
+          if(response.status===403){
+            navigate("/app")
+          }
+          const data = await response.json()
+          setUsers(data)
+          setIsLoading(false)
+      }
+
+   useEffect(()=> {
+    getAllUsers()
+   },[])
 
   return (
     <>
@@ -99,7 +160,7 @@ export default function UsersManagement({ onSelectUser }) {
                 <th className="px-4 py-3 text-left text-xs font-medium text-[color:var(--muted-foreground)]">User</th>
                 <th className="px-4 py-3 text-left text-xs font-medium text-[color:var(--muted-foreground)]">Role</th>
                 <th className="px-4 py-3 text-left text-xs font-medium text-[color:var(--muted-foreground)]">Storage</th>
-                <th className="px-4 py-3 text-left text-xs font-medium text-[color:var(--muted-foreground)]">Last Active</th>
+                {/* <th className="px-4 py-3 text-left text-xs font-medium text-[color:var(--muted-foreground)]">Last Active</th> */}
                 <th className="px-4 py-3 text-right text-xs font-medium text-[color:var(--muted-foreground)]">Actions</th>
               </tr>
             </thead>
@@ -109,7 +170,8 @@ export default function UsersManagement({ onSelectUser }) {
                   <td className="px-4 py-4">
                     <div className="flex items-center gap-3">
                       <div className="w-8 h-8 rounded-full bg-[color:var(--primary)] text-[color:var(--primary-foreground)] flex items-center justify-center text-xs font-bold">
-                        {user.avatar}
+                        {/* {user.avatar} */}
+                        <img src={user.avatar} alt="avatar" className='rounded-full' />
                       </div>
                       <div>
                         <p className="text-sm font-medium text-[color:var(--foreground)]">{user.name}</p>
@@ -122,8 +184,8 @@ export default function UsersManagement({ onSelectUser }) {
                       {user.role}
                     </span>
                   </td>
-                  <td className="px-4 py-4 text-sm text-[color:var(--foreground)]">{user.storage}</td>
-                  <td className="px-4 py-4 text-sm text-[color:var(--muted-foreground)]">{user.lastActive}</td>
+                  <td className="px-4 py-4 text-sm text-[color:var(--foreground)]">{formatBytes(user.storage)}/100MB</td>
+                  {/* <td className="px-4 py-4 text-sm text-[color:var(--muted-foreground)]">{user.lastActive}</td> */}
                   <td className="px-4 py-4">
                     <div className="flex items-center justify-end gap-2">
                       <button
@@ -147,6 +209,19 @@ export default function UsersManagement({ onSelectUser }) {
                       >
                         <Trash2 className="w-4 h-4" />
                       </button>
+                     {user.isLoggedIn? 
+                      <button
+                        onClick={() => handleForceLogout(user.id)}
+                        className="p-2 rounded-md text-[color:var(--muted-foreground)] hover:bg-[color:var(--destructive)] hover:text-[color:var(--destructive-foreground)] transition-colors"
+                        title="Force Logout"
+                      >
+                        <LogOut className="w-4 h-4" />
+                      </button>: <button
+                        className="p-2 rounded-md text-[color:var(--muted-foreground)] hover:bg-[color:var(--destructive)] hover:text-[color:var(--destructive-foreground)] transition-colors"
+                        title="Not logged"
+                      >
+                        <UserX className="w-4 h-4" />
+                      </button>}
                     </div>
                   </td>
                 </tr>
@@ -174,6 +249,16 @@ export default function UsersManagement({ onSelectUser }) {
           user={selectedUser}
           onClose={() => setShowDeleteModal(false)}
           onConfirm={confirmDelete}
+          setDeleteReason={setDeleteReason}
+          deleteReason={deleteReason}
+        />
+      )}
+
+      {showLogoutModal && selectedUser && (
+        <ForceLogoutModal
+          user={selectedUser}
+          onClose={() => setShowLogoutModal(false)}
+          onConfirm={confirmLogout}
         />
       )}
     </>

@@ -14,12 +14,12 @@ export default function RegisterPage() {
   const [serverError, setServerError] = useState("");
     const [isLoading, setIsLoading] = useState(false);
   const [isSuccess, setIsSuccess] = useState(false);
-
+  const [error, setError] = useState("")
 
  const [formData, setFormData] = useState({
     fullname: "",
     email: "",
-    password: "",
+    password: "Abcd@12345",
   });
 
   const [otp, setOtp] = useState("");
@@ -32,6 +32,9 @@ export default function RegisterPage() {
 
    const handleChange = (e) => {
     const { name, value } = e.target;
+    if(name === "email" || name === "password" || name === "fullname"){
+      setError("");
+    }
     if (name === "email") {
       setServerError("");
       setOtpError("");
@@ -55,10 +58,22 @@ export default function RegisterPage() {
     // Send OTP handler
   const handleSendOtp = async (e) => {
     e.preventDefault();
-    const { email } = formData;
+    const { email, password, fullname } = formData;
     if (!email) {
-      setOtpError("Please enter your email first.");
+      setError("Please enter you email")
       return;
+    }
+    if( password.length < 8 ){
+      setError("Password length should be greater then 8")
+      return
+    }
+    if( password.length <8 ){
+      setError("Minimum assword length should be  8")
+      return
+    }
+    if( fullname.length < 3 ){
+      setError("Minimum name length should be 3")
+      return
     }
 
     try {
@@ -249,6 +264,8 @@ else if(data.status === 201){
             handleSendOtp={handleSendOtp}
             isSending={isSending}
             serverError={serverError}
+            error={error}
+            setError={setError}
             // showPassword={showPassword}
             // setShowPassword={setShowPassword}
             // isLoading={isLoading}

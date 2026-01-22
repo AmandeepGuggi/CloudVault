@@ -17,6 +17,9 @@ const LoginScreen = ({
   isSubmitting,
   serverError,
   rememberMe,
+  refreshUser,
+  handleLoginSuccess
+
 }) => {
   const navigate = useNavigate();
   const [loading, setLoading] = useState(false);
@@ -154,7 +157,7 @@ const githubLogin = () => {
               }
               if (data.user) {
                 // Handle failed login
-                navigate("/app");
+                handleLoginSuccess()
                 return;
               }
               return;

@@ -12,7 +12,7 @@ import { useState } from 'react';
 import { Eye, EyeOff } from "lucide-react";
 import { FaUser } from "react-icons/fa";
 
-const RegisterScreen = ({handleSendOtp, handleInputChange, fullnameTxt, emailTxt, passwordTxt, isSending, navigateToScreen, serverError}) => {
+const RegisterScreen = ({handleSendOtp, handleInputChange, fullnameTxt, emailTxt, passwordTxt, isSending, serverError, error, setError}) => {
   const navigate = useNavigate()
     const [focus, setFocus] = useState(false);
     const [showPassword, setShowPassword] = useState(false);
@@ -40,7 +40,7 @@ const RegisterScreen = ({handleSendOtp, handleInputChange, fullnameTxt, emailTxt
             
               <FloatingInput
                           icon={<FaUser />}
-                          name="fullnameTxt"
+                          name="fullname"
                           value={fullnameTxt}
                           onChange={handleInputChange}
                           label="Full name"
@@ -67,7 +67,7 @@ const RegisterScreen = ({handleSendOtp, handleInputChange, fullnameTxt, emailTxt
             <label
               className={`absolute transition-all duration-200 pointer-events-none 
         ${
-          focus
+          focus || passwordTxt?.length > 0 
             ? "-top-3 text-sm text-gray-500"
             : "top-3 text-base text-gray-400"
         }`}
@@ -98,7 +98,7 @@ const RegisterScreen = ({handleSendOtp, handleInputChange, fullnameTxt, emailTxt
 
             {/* {<EyeOff /> && <span className="absolute right-0 top-3">{<Eye className="text-gray-400" />}</span>} */}
           </div>
-
+          {error && <span className="text-sm -mt-4 text-red-500">{error}</span>}
             {/* Terms */}
             <div className="flex items-start gap-2">
               <input
@@ -114,7 +114,8 @@ const RegisterScreen = ({handleSendOtp, handleInputChange, fullnameTxt, emailTxt
                 <a href="#" className="text-[#0061D5] hover:underline">Privacy Policy</a>
               </label>
             </div>
-
+            
+             
              {serverError && <span className="text-sm text-red-500">{serverError}</span>}
 
             {/* Submit */}

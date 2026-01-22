@@ -11,7 +11,7 @@ import { useAuth } from "../context/AuthContext.jsx";
 
 
 export default function Home() {
-  const { refreshUser } = useAuth();
+  const { refreshUser , user} = useAuth();
   const [view, setView] = useState("list"); 
   const [sortBy, setSortBy] = useState("name"); 
 const [sortOrder, setSortOrder] = useState("asc"); 
@@ -104,6 +104,7 @@ const [directoryName, setDirectoryName] = useState("My Files");
   //fetch directory items
    async function getDirectoryItems() {
       setErrorMessage(""); // clear any existing error
+      if (!user) return;
       try {
         const response = await fetch(`${BASE_URL}/directory/${dirId || ""}`, {
           credentials: "include",
@@ -136,6 +137,7 @@ const [directoryName, setDirectoryName] = useState("My Files");
 }, []);
 
     useEffect(() => {
+      if (!user) return; 
         getDirectoryItems();
 
         if (!dirId) {

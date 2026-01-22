@@ -7,7 +7,9 @@ import fileRoutes from "./routes/fileRoutes.js"
 import userRoutes from "./routes/userRoutes.js";
 import checkAuthMiddleware from "./auth/checkAuthMiddleware.js";
 import authRoutes from "./routes/authRoutes.js"
+import ownerRoutes from './routes/ownerRoutes.js'
 import path from "path"
+import checkAuth from "./auth/checkUserAuth.js";
 
 
 
@@ -41,6 +43,8 @@ app.use("/file", checkAuthMiddleware, fileRoutes);
 app.use("/", userRoutes);
 app.use("/otp", authRoutes);
 app.use("/auth", authRoutes);
+
+app.use('/owner',checkAuth , ownerRoutes)
 
 
 

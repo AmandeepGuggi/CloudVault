@@ -1,5 +1,7 @@
 import React, { useState } from "react";
-import { FolderOpen, Globe } from "lucide-react";
+import { useLocation, Navigate } from "react-router-dom";
+import { useAuth } from "../../context/AuthContext"; 
+
 import VerifyOtp from "../Register/VerifyOtp";
 import { useNavigate } from "react-router-dom";
 import LoginScreen from "./LoginScreen";
@@ -8,6 +10,10 @@ import { FaCloud } from "react-icons/fa";
 
 export default function LoginPage() {
   const navigate = useNavigate();
+const { refreshUser, user, loading } = useAuth();
+const location = useLocation();
+
+const from = location.state?.from?.pathname || "/app";
 
 const [otp, setOtp] = useState("");
 const [isVerifyingOtp, setIsVerifyingOtp] = useState(false);
@@ -69,10 +75,10 @@ const [isVerifyingOtp, setIsVerifyingOtp] = useState(false);
             setServerError(data.error);
             setIsSubmitting(false)
           } 
-          else if(response.status===201) {
-              navigate("/app");
-             setIsSubmitting(false)
-          }
+           await refreshUser();
+
+    // 🚪 NOW navigate
+    navigate(from, { replace: true });
             
     
         } catch (error) {
@@ -96,7 +102,9 @@ const [isVerifyingOtp, setIsVerifyingOtp] = useState(false);
         const data = await res.json();
       
         if (res.ok) {
-          navigate("/directory"); // ✅ ONLY HERE
+         await refreshUser();
+         navigate(from, { replace: true });
+// ✅ ONLY HERE
         } else {
           alert("Invalid OTP");
         }
@@ -122,16 +130,20 @@ const [isVerifyingOtp, setIsVerifyingOtp] = useState(false);
             alert(data.error || "Invalid OTP");
             return;
           }
-      
-          navigate("/directory");
+      await refreshUser();
+navigate(from, { replace: true });
+
       
         } finally {
           setIsVerifyingOtp(false);
         }
       };
 
- //-----------------------------------------------------------------------//
- //-----------------------------------------------------------------------//
+const handleLoginSuccess = async () => {
+  await refreshUser();
+  navigate(from, { replace: true });
+};
+
 
    const [currentScreen, setCurrentScreen] = useState("login");
 
@@ -155,7 +167,11 @@ const [isVerifyingOtp, setIsVerifyingOtp] = useState(false);
   }
 };
 
+if (loading) return null;
 
+if (user) {
+  return <Navigate to="/app" replace />;
+}
  const renderScreen = () => {
     switch (currentScreen) {
       case "login":
@@ -169,6 +185,8 @@ const [isVerifyingOtp, setIsVerifyingOtp] = useState(false);
             isSubmitting={isSubmitting}
             serverError={serverError}
             rememberMe={formData.rememberMe}
+            refreshUser={refreshUser}
+            handleLoginSuccess={handleLoginSuccess}
             // isSending={isSending}
             // serverError={serverError}
             // showPassword={showPassword}

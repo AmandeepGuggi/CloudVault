@@ -5,6 +5,7 @@ import { Menu, Settings, Bell } from "lucide-react";
 import { useRef, useEffect, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { BASE_URL } from "../utility";
+import { useAuth } from "../context/AuthContext";
 
 export default function Topbar({
   onToggleSidebar,
@@ -13,7 +14,7 @@ export default function Topbar({
 }) {
 const wrapperRef = useRef(null);
 const popupRef = useRef(null);
-
+const { user } = useAuth();
    const navigate = useNavigate();
 
    const [loggedIn, setLoggedIn] = useState(false);
@@ -59,6 +60,7 @@ const clearNotifications = async () => {
 }, [showProfile, setShowProfile]);
 
 async function getUser() {
+  if (!user) return;
   try {
     const response = await fetch("http://localhost:4000/user/", {
       method: "GET", 
@@ -85,6 +87,7 @@ async function getUser() {
 
 useEffect(()=> {
 getUser()
+if (!user) return; 
  fetchNotifications();
 
  function handleClickOutside(e) {
@@ -110,7 +113,7 @@ getUser()
         setLoggedIn(false);
         setUserName("");
         setUserEmail("");
-        navigate("/login");
+        navigate("/login", { replace: true });
       } else {
         console.error("Logout failed");
       }

@@ -22,4 +22,5 @@ router.post("/notifications/seen", checkAuth, notificationSeen);
 
 router.delete('/logout-device/:sessionId', checkAuth, logoutDevice)
 
+
 export default router;

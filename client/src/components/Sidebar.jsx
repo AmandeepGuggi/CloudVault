@@ -6,7 +6,7 @@ import {
 
   FiShare2,
 } from "react-icons/fi";
-import { NavLink, useNavigate } from "react-router-dom";
+import { NavLink, useLocation, useNavigate } from "react-router-dom";
 import { useAuth } from "../context/AuthContext.jsx"; 
 import { useEffect, useRef, useState } from "react";
 import { formatBytes } from "../utility";
@@ -15,6 +15,9 @@ export default function Sidebar({
 
 }) {
  const { user, loading } = useAuth();
+ const location = useLocation();
+
+const from = location.state?.from?.pathname || "/login";
 
   if (loading) return null;
   // if (!user) return null;
@@ -30,6 +33,8 @@ const roundedPercentage = storagePercentage.toFixed(1);
 
 
 async function getUser() {
+  console.log("user is", user);
+  if (!user) return;
   try {
     const response = await fetch("http://localhost:4000/user/", {
       method: "GET", 
@@ -38,7 +43,7 @@ async function getUser() {
 
     if (!response.ok) {
       console.error("Unauthorized or failed:", response.status);
-      navigate("/login")
+      navigate(from, { replace: true });
       return;
     }
 

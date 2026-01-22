@@ -32,7 +32,7 @@ const userSchema = new Schema({
     },
      role: {
       type: String,
-      enum: ["Admin", "Manager", "User"],
+      enum: ["Admin", "Editor", "User", "Owner"],
       default: "User",
     },
    password: {
@@ -52,9 +52,18 @@ const userSchema = new Schema({
         type: String,
         default: "https://encrypted-tbn0.gstatic.com/images?q=tbn:ANd9GcRYfAWbelVtedtn8mYCajf5bYv6PJgyMxOR2g&s",
     },
-    deleted: {
+    isDeleted: {
         type: Boolean,
         default: false
+    },
+    deletedBy: {
+        type: String,
+    },
+    deletedAt: {
+        type: Date,
+    },
+    deletedReason: {
+        type: String,
     }
 }, {
     strict: "throw",

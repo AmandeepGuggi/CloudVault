@@ -1,39 +1,25 @@
 'use client';
 
-import { useState } from 'react'
+import { useEffect, useState } from 'react'
 import { RotateCcw, Trash2, AlertCircle } from 'lucide-react'
 import RestoreUserModal from './modals/RestoreUserModal'
 import PermanentDeleteModal from './modals/PermanentDeleteModal'
+import { BASE_URL } from '../../../utility';
 
-const mockDeletedUsers = [
-  {
-    id: 'del1',
-    name: 'Emma Davis',
-    email: 'emma@cloudvault.com',
-    deletedDate: '2024-01-15',
-    deletedBy: 'Owner',
-    reason: 'User requested account deletion'
-  },
-  {
-    id: 'del2',
-    name: 'Frank Wilson',
-    email: 'frank@cloudvault.com',
-    deletedDate: '2024-01-10',
-    deletedBy: 'Admin',
-    reason: 'Account inactive for 90+ days'
-  },
-  {
-    id: 'del3',
-    name: 'Grace Lee',
-    email: 'grace@cloudvault.com',
-    deletedDate: '2024-01-08',
-    deletedBy: 'Owner',
-    reason: 'Compliance and data minimization'
-  }
-]
+
+function formatDateForUser(isoString) {
+  if (!isoString) return "";
+
+  return new Date(isoString).toLocaleDateString("en-IN", {
+    day: "2-digit",
+    month: "short",
+    year: "numeric",
+  });
+}
+
 
 export default function DeletedUsers() {
-  const [deletedUsers, setDeletedUsers] = useState(mockDeletedUsers)
+  const [deletedUsers, setDeletedUsers] = useState([])
   const [showRestoreModal, setShowRestoreModal] = useState(false)
   const [showPermanentModal, setShowPermanentModal] = useState(false)
   const [selectedUser, setSelectedUser] = useState(null)
@@ -48,15 +34,51 @@ export default function DeletedUsers() {
     setShowPermanentModal(true)
   }
 
-  const confirmRestore = () => {
-    setDeletedUsers(deletedUsers.filter(u => u.id !== selectedUser.id))
+  const confirmRestore = async () => {
+    const response = await fetch(`${BASE_URL}/owner/users/${selectedUser.id}/restore`, {
+          method: "POST",
+          credentials: "include"
+          })
+          getDeletedUsers()
     setShowRestoreModal(false)
   }
 
-  const confirmPermanentDelete = () => {
-    setDeletedUsers(deletedUsers.filter(u => u.id !== selectedUser.id))
+  const confirmPermanentDelete = async () => {
+    try{
+      const response = await fetch(`${BASE_URL}/owner/users/${selectedUser.id}/hard-delete`,{
+        method: "DELETE",
+      credentials: "include",
+     
+    })
+    if(response.ok){
+
+      getDeletedUsers()
+    }
+  }catch(err){
+    console.log(err);
+  }finally{
     setShowPermanentModal(false)
   }
+  }
+
+   async function getDeletedUsers() {
+        // setIsLoading(true)
+        const response = await fetch(`${BASE_URL}/owner/users/getDeletedUsers`, {
+          method: "GET",
+          credentials: "include"
+          })
+          if(response.status===403){
+            navigate("/app")
+          }
+          const data = await response.json()
+          setDeletedUsers(data)
+          // setIsLoading(false)
+      }
+
+      useEffect(()=> {
+        getDeletedUsers()
+      
+      },[])
 
   return (
     <>
@@ -96,7 +118,9 @@ export default function DeletedUsers() {
                         <p className="text-xs text-[color:var(--muted-foreground)]">{user.email}</p>
                       </div>
                     </td>
-                    <td className="px-4 py-4 text-sm text-[color:var(--foreground)]">{user.deletedDate}</td>
+                    <td className="px-4 py-4 text-sm text-[color:var(--foreground)]">{user.deletedDate}
+                      {formatDateForUser(user.deletedAt)}
+                    </td>
                     <td className="px-4 py-4 text-sm text-[color:var(--foreground)]">{user.deletedBy}</td>
                     <td className="px-4 py-4 text-sm text-[color:var(--muted-foreground)]">{user.reason}</td>
                     <td className="px-4 py-4">

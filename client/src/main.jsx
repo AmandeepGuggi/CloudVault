@@ -7,12 +7,12 @@ import { AuthProvider } from './context/AuthContext.jsx'
 
 const clientId = "894015875708-tgmt1c9nb33autr0ri8vsjn66t79fhji.apps.googleusercontent.com"
 createRoot(document.getElementById('root')).render(
-  <StrictMode>
+ 
     <GoogleOAuthProvider clientId={clientId}>
       {/* <AuthProvider> */}
 
       <App />
       {/* </AuthProvider> */}
     </GoogleOAuthProvider>
-  </StrictMode>,
+
 )

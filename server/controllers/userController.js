@@ -39,9 +39,9 @@ export const registerUser = async (req, res, next) => {
       fullname,
       email,
       password,
-      // authProvider: "local",
-      // providerId: null,
-      rootDirId: userRootDirId
+      authProvider: "local",
+      rootDirId: userRootDirId,
+      storageUsed: 0
     }], { session })
    await Directory.create([{
       _id: userRootDirId,
@@ -85,7 +85,9 @@ export const loginUser = async (req, res, next) => {
   if (!foundUser) {
       return res.status(401).json({ error: "Invalid credentials" });
     }
- 
+  if(foundUser.isDeleted){
+   return res.status(403).json({error: "your account is deleted contact admin"})
+  }
 try{
 
   const isPasswordValid = await foundUser.comparePassword(password)

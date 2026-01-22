@@ -64,7 +64,7 @@ export const loginWithGoogle = async (req, res, next) => {
     
   if (user) {
     console.log(user);
-  if(user.deleted){
+  if(user.isDeleted){
    return res.status(403).json({error: "your account is deleted contact admin"})
   }
 

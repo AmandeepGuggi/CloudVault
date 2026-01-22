@@ -1,96 +1,151 @@
-'use client';
+"use client";
 
-import { useState } from 'react'
-import { ChevronLeft, File, Folder, Download, Trash2, Edit2, Copy, MoreVertical } from 'lucide-react'
-import EditFileModal from './modals/EditFileModal'
-import RenameFileModal from './modals/RenameFileModal'
-import DeleteFileModal from './modals/DeleteFileModal'
+import { useEffect, useState } from "react";
+import {
+  ChevronLeft,
+  File,
+  Folder,
+  Download,
+  Trash2,
+  Edit2,
+  Copy,
+  MoreVertical,
+} from "lucide-react";
+import EditFileModal from "./modals/EditFileModal";
+import RenameFileModal from "./modals/RenameFileModal";
+import DeleteFileModal from "./modals/DeleteFileModal";
+import { BASE_URL, formatBytes } from "../../../utility";
 
-const mockFileStructure = {
-  '/': [
-    { id: '1', name: 'Project Proposal.pdf', type: 'file', size: '2.4 MB', modified: '2024-01-15', icon: 'pdf' },
-    { id: '2', name: 'Documents', type: 'folder', size: '12 files', modified: '2024-01-16', icon: 'folder' },
-    { id: '3', name: 'Presentations.pptx', type: 'file', size: '8.7 MB', modified: '2024-01-10', icon: 'pptx' },
-    { id: '4', name: 'Budget 2024.xlsx', type: 'file', size: '1.2 MB', modified: '2024-01-12', icon: 'xlsx' },
-    { id: '5', name: 'Archive', type: 'folder', size: '45 files', modified: '2024-01-05', icon: 'folder' }
-  ],
-  '/Documents': [
-    { id: '6', name: 'Meeting Notes.docx', type: 'file', size: '512 KB', modified: '2024-01-14', icon: 'docx' },
-    { id: '7', name: 'Design Brief.pdf', type: 'file', size: '3.1 MB', modified: '2024-01-13', icon: 'pdf' },
-    { id: '8', name: 'Financial Report.xlsx', type: 'file', size: '2.8 MB', modified: '2024-01-11', icon: 'xlsx' }
-  ],
-  '/Archive': [
-    { id: '9', name: 'Old Projects', type: 'folder', size: '18 files', modified: '2023-12-20', icon: 'folder' },
-    { id: '10', name: 'Backup.zip', type: 'file', size: '156 MB', modified: '2023-12-15', icon: 'zip' }
-  ]
-}
+
 
 export default function UserFilesPage({ user, onBack }) {
-  const [currentPath, setCurrentPath] = useState('/')
-  const [files, setFiles] = useState(mockFileStructure)
-  const [showEditModal, setShowEditModal] = useState(false)
-  const [showRenameModal, setShowRenameModal] = useState(false)
-  const [showDeleteModal, setShowDeleteModal] = useState(false)
-  const [selectedFile, setSelectedFile] = useState(null)
-  const [showMenu, setShowMenu] = useState(null)
 
-  const currentFiles = files[currentPath] || []
+  const [showEditModal, setShowEditModal] = useState(false);
+  const [showRenameModal, setShowRenameModal] = useState(false);
+  const [showDeleteModal, setShowDeleteModal] = useState(false);
+  const [selectedFile, setSelectedFile] = useState(null);
+  const [showMenu, setShowMenu] = useState(null);
+  const [dirId, setDirId] = useState("");
+  const [currentDirId, setCurrentDirId] = useState(null);
+const [items, setItems] = useState([]);
+   const [breadcrumbs, setBreadcrumbs] = useState(["root"])
+
+
+function transformApiData(data) {
+  const mappedDirs = data.directories.map(dir => ({
+    id: dir._id || dir.id,
+    name: dir.name,
+    type: "folder",
+    size: "—",
+    modified: "",
+    raw: dir
+  }));
+
+  const mappedFiles = data.files.map(file => ({
+    id: file._id || file.id,
+    name: file.name,
+    type: "file",
+    size: formatBytes(file.size),
+    modified: new Date(file.updatedAt).toLocaleDateString(),
+    raw: file
+  }));
+
+  return [...mappedDirs, ...mappedFiles];
+}
+
 
   const handleEditFile = (file) => {
-    setSelectedFile(file)
-    setShowEditModal(true)
-    setShowMenu(null)
-  }
+    setSelectedFile(file);
+    setShowEditModal(true);
+    setShowMenu(null);
+  };
 
   const handleRenameFile = (file) => {
-    setSelectedFile(file)
-    setShowRenameModal(true)
-    setShowMenu(null)
-  }
+    setSelectedFile(file);
+    setShowRenameModal(true);
+    setShowMenu(null);
+  };
 
   const handleDeleteFile = (file) => {
-    setSelectedFile(file)
-    setShowDeleteModal(true)
-    setShowMenu(null)
-  }
+    setSelectedFile(file);
+    setShowDeleteModal(true);
+    setShowMenu(null);
+  };
 
   const confirmRename = (newName) => {
-    setFiles(prev => ({
-      ...prev,
-      [currentPath]: prev[currentPath].map(f =>
-        f.id === selectedFile.id ? { ...f, name: newName } : f
-      )
-    }))
-    setShowRenameModal(false)
-  }
+   //my logic
+    setShowRenameModal(false);
+  };
 
   const confirmDelete = () => {
-    setFiles(prev => ({
-      ...prev,
-      [currentPath]: prev[currentPath].filter(f => f.id !== selectedFile.id)
-    }))
-    setShowDeleteModal(false)
-  }
+   //logic
+    setShowDeleteModal(false);
+  };
 
-  const openFolder = (folderName) => {
-    setCurrentPath(`${currentPath === '/' ? '' : currentPath}/${folderName}`)
-  }
+  const openFolder = (folder) => {
+    console.log(folder);
+  setCurrentDirId(folder.id);
+  setDirId(folder.raw._id);
+  setBreadcrumbs(prev => [
+    ...prev,
+    { id: folder.raw._id, name: folder.name }
+  ]);
+};
 
-  const breadcrumbs = currentPath === '/' ? ['Root'] : ['Root', ...currentPath.split('/').filter(Boolean)]
+function goToBreadcrumb(index) {
+  const crumb = breadcrumbs[index];
+  setDirId(crumb.id);
+  setBreadcrumbs(breadcrumbs.slice(0, index + 1));
+}
+
+
+  
 
   const getFileIcon = (item) => {
-    if (item.type === 'folder') return <Folder className="w-5 h-5 text-amber-500" />
-    
+    if (item.type === "folder")
+      return <Folder className="w-5 h-5 text-amber-500" />;
+
     const iconMap = {
-      pdf: '📄',
-      docx: '📝',
-      xlsx: '📊',
-      pptx: '🎯',
-      zip: '📦',
-      folder: '📁'
+      pdf: "📄",
+      docx: "📝",
+      xlsx: "📊",
+      pptx: "🎯",
+      zip: "📦",
+      folder: "📁",
+    };
+    return <span className="text-lg">{iconMap[item.icon] || "📄"}</span>;
+  };
+
+  async function getUserFiles() {
+    let url;
+    if (dirId) {
+       url = `${BASE_URL}/owner/users/${dirId}/getUserFiles`;
+    } else {
+       url = `${BASE_URL}/owner/users/getUserFiles`;
     }
-    return <span className="text-lg">{iconMap[item.icon] || '📄'}</span>
+    try {
+      const response = await fetch(url, {
+        credentials: "include",
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({ userId: user.id }),
+      });
+
+      const data = await response.json();
+     const transformed = transformApiData(data);
+     setItems(transformed);
+
+      console.log("users files", data);
+    } catch (err) {
+      console.log("error getting files", err);
+    }
   }
+
+  useEffect(() => {
+    getUserFiles();
+  }, [dirId]);
 
   return (
     <div className="space-y-6">
@@ -106,7 +161,9 @@ export default function UserFilesPage({ user, onBack }) {
           <h2 className="text-2xl font-bold text-[color:var(--foreground)]">
             Files: {user.name}
           </h2>
-          <p className="text-sm text-[color:var(--muted-foreground)]">{user.email}</p>
+          <p className="text-sm text-[color:var(--muted-foreground)]">
+            {user.email}
+          </p>
         </div>
       </div>
 
@@ -116,10 +173,10 @@ export default function UserFilesPage({ user, onBack }) {
           <div key={idx} className="flex items-center gap-2">
             {idx > 0 && <span>/</span>}
             <button
-              onClick={() => setCurrentPath(idx === 0 ? '/' : '/' + breadcrumbs.slice(1, idx + 1).join('/'))}
+              onClick={() => goToBreadcrumb(idx)}
               className="hover:text-[color:var(--foreground)] transition-colors"
             >
-              {crumb}
+              {crumb.name}
             </button>
           </div>
         ))}
@@ -128,60 +185,91 @@ export default function UserFilesPage({ user, onBack }) {
       {/* File List Card */}
       <div className="card">
         <div className="mb-4 flex items-center justify-between">
-          <h3 className="text-lg font-semibold text-[color:var(--foreground)]">Contents</h3>
+          <h3 className="text-lg font-semibold text-[color:var(--foreground)]">
+            Contents
+          </h3>
           <span className="text-xs text-[color:var(--muted-foreground)]">
-            {currentFiles.length} items
+            {items.length} items
           </span>
         </div>
 
-        {currentFiles.length === 0 ? (
+        {items.length === 0 ? (
           <div className="py-12 text-center">
             <Folder className="w-12 h-12 text-[color:var(--muted-foreground)] opacity-50 mx-auto mb-2" />
-            <p className="text-[color:var(--muted-foreground)]">This folder is empty</p>
+            <p className="text-[color:var(--muted-foreground)]">
+              This folder is empty
+            </p>
           </div>
         ) : (
           <div className="overflow-x-auto">
             <table className="w-full">
               <thead>
                 <tr className="border-b border-[color:var(--border)]">
-                  <th className="px-4 py-3 text-left text-xs font-medium text-[color:var(--muted-foreground)]">Name</th>
-                  <th className="px-4 py-3 text-left text-xs font-medium text-[color:var(--muted-foreground)]">Type</th>
-                  <th className="px-4 py-3 text-left text-xs font-medium text-[color:var(--muted-foreground)]">Size</th>
-                  <th className="px-4 py-3 text-left text-xs font-medium text-[color:var(--muted-foreground)]">Modified</th>
-                  <th className="px-4 py-3 text-right text-xs font-medium text-[color:var(--muted-foreground)]">Actions</th>
+                  <th className="px-4 py-3 text-left text-xs font-medium text-[color:var(--muted-foreground)]">
+                    Name
+                  </th>
+                  <th className="px-4 py-3 text-left text-xs font-medium text-[color:var(--muted-foreground)]">
+                    Type
+                  </th>
+                  <th className="px-4 py-3 text-left text-xs font-medium text-[color:var(--muted-foreground)]">
+                    Size
+                  </th>
+                  <th className="px-4 py-3 text-left text-xs font-medium text-[color:var(--muted-foreground)]">
+                    Modified
+                  </th>
+                  <th className="px-4 py-3 text-right text-xs font-medium text-[color:var(--muted-foreground)]">
+                    Actions
+                  </th>
                 </tr>
               </thead>
               <tbody>
-                {currentFiles.map(item => (
-                  <tr key={item.id} className="border-b border-[color:var(--border)] hover:bg-[color:var(--secondary)] transition-colors">
+                {items.map((item) => (
+                  <tr
+                    key={item.id}
+                    className="border-b border-[color:var(--border)] hover:bg-[color:var(--secondary)] transition-colors"
+                  >
                     <td className="px-4 py-4">
                       <div className="flex items-center gap-3">
                         {getFileIcon(item)}
                         <button
-                          onClick={() => item.type === 'folder' && openFolder(item.name)}
-                          className={item.type === 'folder' ? 'hover:text-[color:var(--accent)] transition-colors' : ''}
+                          onClick={() =>
+                            item.type === "folder" && openFolder(item)
+                          }
+                          className={
+                            item.type === "folder"
+                              ? "hover:text-[color:var(--accent)] transition-colors"
+                              : ""
+                          }
                         >
-                          <span className="font-medium text-[color:var(--foreground)]">{item.name}</span>
+                          <span className="font-medium text-[color:var(--foreground)]">
+                            {item.name}
+                          </span>
                         </button>
                       </div>
                     </td>
                     <td className="px-4 py-4 text-sm text-[color:var(--foreground)] capitalize">
                       {item.type}
                     </td>
-                    <td className="px-4 py-4 text-sm text-[color:var(--muted-foreground)]">{item.size}</td>
-                    <td className="px-4 py-4 text-sm text-[color:var(--muted-foreground)]">{item.modified}</td>
+                    <td className="px-4 py-4 text-sm text-[color:var(--muted-foreground)]">
+                      {item.size}
+                    </td>
+                    <td className="px-4 py-4 text-sm text-[color:var(--muted-foreground)]">
+                      {item.modified}
+                    </td>
                     <td className="px-4 py-4">
                       <div className="flex items-center justify-end gap-2 relative">
                         <button
-                          onClick={() => console.log('Download:', item.name)}
+                          onClick={() => console.log("Download:", item.name)}
                           className="p-2 rounded-md text-[color:var(--muted-foreground)] hover:bg-[color:var(--accent)] hover:text-[color:var(--accent-foreground)] transition-colors"
                           title="Download"
                         >
                           <Download className="w-4 h-4" />
                         </button>
-                        
+
                         <button
-                          onClick={() => setShowMenu(showMenu === item.id ? null : item.id)}
+                          onClick={() =>
+                            setShowMenu(showMenu === item.id ? null : item.id)
+                          }
                           className="p-2 rounded-md text-[color:var(--muted-foreground)] hover:bg-[color:var(--secondary)] transition-colors"
                           title="More options"
                         >
@@ -224,7 +312,10 @@ export default function UserFilesPage({ user, onBack }) {
         )}
 
         <div className="mt-4 text-xs text-[color:var(--muted-foreground)]">
-          <p>Owner has full file management permissions. All file changes are logged.</p>
+          <p>
+            Owner has full file management permissions. All file changes are
+            logged.
+          </p>
         </div>
       </div>
 
@@ -253,5 +344,5 @@ export default function UserFilesPage({ user, onBack }) {
         />
       )}
     </div>
-  )
+  );
 }
