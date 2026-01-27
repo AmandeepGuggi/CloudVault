@@ -44,6 +44,8 @@
 
     "pdf-poppler": "^0.2.3",
 
+    "redis": "^5.10.0",
+
     "sharp": "^0.34.5",
 
     "ua-parser-js": "^2.0.8"

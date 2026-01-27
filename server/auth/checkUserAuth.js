@@ -1,3 +1,4 @@
+import redisClient from "../config/redis.js";
 import Session from "../modals/sessionModal.js";
 import User from "../modals/userModal.js"
 
@@ -8,7 +9,8 @@ export default async function checkAuth(req, res, next) {
     return res.status(401).json({ error: "No sid ,Not authenticated, Not logged!" });
   }
 
-  const session = await Session.findById(sid)
+  // const session = await Session.findById(sid)
+  const session = await redisClient.json.get(`session:${sid}`)
 
    if(!session) {
      return res.status(401).json({ error: "Not logged in!", user: null });

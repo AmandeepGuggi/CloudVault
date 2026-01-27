@@ -12,7 +12,7 @@ export default function App() {
   const [activeTab, setActiveTab] = useState('users')
   const [selectedUser, setSelectedUser] = useState(null)
   const [viewingUserFiles, setViewingUserFiles] = useState(false)
-   const [serverError, setServerError] = useState("kf")
+   const [serverError, setServerError] = useState("")
   const [secondsLeft, setSecondsLeft] = useState(5);
 
    useEffect(() => {

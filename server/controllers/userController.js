@@ -4,6 +4,7 @@ import User from "../modals/userModal.js"
 import Session from "../modals/sessionModal.js"
 import OTP from "../modals/otpModal.js";
 import Files from "../modals/fileModal.js";
+import redisClient from "../config/redis.js";
 
 
 export const registerUser = async (req, res, next) => {
@@ -103,10 +104,16 @@ try{
       ? 1000 * 60 * 60 * 24 * 7
       : 1000 * 60 * 60 * 24;
 
-  const session = await Session.create({userId: foundUser._id})
-  console.log("created session", session);
+  // const session = await Session.create({userId: foundUser._id})
+  const sessionId = crypto.randomUUID()
+  const redisKey = `session:${sessionId}`
+  await redisClient.json.set(redisKey, "$", {userId: foundUser._id} )
+  redisClient.expire(redisKey, maxAge)
 
-  res.cookie('sid', session.id.toString(), {
+  res.cookie('sid', 
+    sessionId
+    // session._id.toString()
+    , {
     httpOnly: true,
     signed: true,
     maxAge

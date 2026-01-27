@@ -20,8 +20,8 @@ const [isVerifyingOtp, setIsVerifyingOtp] = useState(false);
 
   const [isSubmitting, setIsSubmitting] = useState(false);
     const [formData, setFormData] = useState({
-      email: "",
-      password: "",
+      email: "gamerzonly369@gmail.com",
+      password: "Abcd@12345",
       rememberMe: false
     });
     const [serverError, setServerError] = useState("");
