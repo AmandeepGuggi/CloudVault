@@ -96,9 +96,29 @@ try{
   if (!isPasswordValid) {
     return res.status(401).json({ error: 'Invalid Credentials' })
   }
+  const MAX_SESSIONS = 3;
+  const activeSessions = await redisClient.ft.search(
+    "userIdIdx", 
+    `@userId:{${foundUser.id}}`)
+    console.log(activeSessions);
+   if (activeSessions.total >= MAX_SESSIONS) {
+      // await Session.deleteOne({ _id: activeSessions[0]._id });
+      await redisClient.del(activeSessions.documents[0].id)
+    }
 
- await Session.deleteMany({ userId: foundUser._id }); 
- res.clearCookie('sid')
+
+    //  const loginSession = await Session.create([
+    //   {
+    //     userId: user._id,
+    //     userAgent: req.headers["user-agent"],
+    //     ipAddress: req.ip,
+    //     deviceName: parseDevice(req.headers["user-agent"]),
+    //     lastActiveAt: new Date(),
+    //     isRevoked: false,
+    //   },
+    // ]);
+    // const sid = loginSession[0]._id.toString();
+
   
  const maxAge = rememberMe
       ? 1000 * 60 * 60 * 24 * 7
@@ -108,7 +128,7 @@ try{
   const sessionId = crypto.randomUUID()
   const redisKey = `session:${sessionId}`
   await redisClient.json.set(redisKey, "$", {userId: foundUser._id} )
-  redisClient.expire(redisKey, maxAge)
+  redisClient.expire(redisKey, maxAge/1000)
 
   res.cookie('sid', 
     sessionId
@@ -179,20 +199,31 @@ try{
 //   }
 // };
 
+export const getUserDetails = async (req, res) => {
+  
+  res.status(200).json({
+    name: req.user.fullname,
+    email: req.user.email,
+    picture: req.user.picture,
+    storage:  req.user.storageUsed,
+    role: req.user.role
+  })
+}
+
 
 
 export const logout = async (req, res) => {
   const { sid } = req.signedCookies;
-
+  const {userId} = req.user
   if (!sid) {
     return res.status(204).end();
   }
 
-  await Session.deleteOne({
-    _id: sid,
-    userId: req.user._id // 🔐 prevent cross-user delete
-  });
-
+  // await Session.deleteOne({
+  //   _id: sid,
+  //   userId: req.user._id // 🔐 prevent cross-user delete
+  // });
+  await redisClient.del(`session:${sid}`)
   res.clearCookie("sid");
   res.status(204).end();
 };

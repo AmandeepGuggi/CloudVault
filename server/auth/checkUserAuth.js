@@ -11,6 +11,7 @@ export default async function checkAuth(req, res, next) {
 
   // const session = await Session.findById(sid)
   const session = await redisClient.json.get(`session:${sid}`)
+  
 
    if(!session) {
      return res.status(401).json({ error: "Not logged in!", user: null });
