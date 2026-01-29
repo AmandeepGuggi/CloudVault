@@ -5,13 +5,15 @@ A **Google Drive–style file manager UI** built using **React** and **Tailwind 
 
 ## ✨ Features
 
-- 📂 Folder & file grid layout (Drive-like)
-- 🖱️ **Right-click context menu** (custom, browser menu disabled)
-- 🧠 Context menu adapts based on item type (**file vs folder**)
-- ❌ Click outside to close menus (proper boundary handling)
-- 📱 Fully responsive (desktop & mobile)
-- 🎨 Clean UI with Tailwind CSS
-- 🧱 Scalable, component-driven architecture
+🔐 Secure auth + session handling
+⚡ Google OAuth (One Tap) & GitHub OAuth
+🔔 Real-time notifications
+📱 Multi-device login & logout
+📂 Upload files from google drive
+📤 File upload, rename, delete
+📁 Folder structure
+⭐ Starred files
+🗑️ Recycle bin system
 
 ---
 
