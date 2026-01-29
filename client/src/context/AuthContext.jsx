@@ -52,6 +52,7 @@ export const AuthProvider = ({ children }) => {
       );
     } catch (err) {
       // ignore
+      console.log("error logging out", err);
     } finally {
       setUser(null);
     }

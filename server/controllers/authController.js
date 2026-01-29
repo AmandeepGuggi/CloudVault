@@ -9,16 +9,18 @@ import Directory from "../modals/directoryModal.js";
 import Session from "../modals/sessionModal.js";
 import { getGithubUser } from "../services/githubAuthService.js";
 import { UAParser } from "ua-parser-js";
+import { parseDevice } from "../services/parseDevice.js";
+import redisClient from "../config/redis.js";
 
-const parseDevice = (userAgent) => {
-  const parser = new UAParser(userAgent);
-  const result = parser.getResult();
+// const parseDevice = (userAgent) => {
+//   const parser = new UAParser(userAgent);
+//   const result = parser.getResult();
 
-  const browser = result.browser.name || "Unknown Browser";
-  const os = result.os.name || "Unknown OS";
+//   const browser = result.browser.name || "Unknown Browser";
+//   const os = result.os.name || "Unknown OS";
 
-  return `${browser} on ${os}`;
-};
+//   return `${browser} on ${os}`;
+// };
 
 export const sendOtp = async (req, res) => {
   const { email } = req.body;
@@ -51,7 +53,6 @@ export const verifyOtp = async (req, res) => {
   res.json({ msg: "otp verified" });
 };
 
-//experimental
 export const loginWithGoogle = async (req, res, next) => {
   // Implementation for Google login
   const { idToken } = req.body;
@@ -63,19 +64,16 @@ export const loginWithGoogle = async (req, res, next) => {
     .select("-__v -createdAt -updatedAt -authProvider ")
     
   if (user) {
-    console.log(user);
   if(user.isDeleted){
    return res.status(403).json({error: "your account is deleted contact admin"})
   }
 
     const MAX_SESSIONS = 3;
-    const activeSessions = await Session.find({
-      userId: user._id,
-      isRevoked: false,
-    }).sort({ createdAt: 1 });
-
-    if (activeSessions.length >= MAX_SESSIONS) {
-      await Session.deleteOne({ _id: activeSessions[0]._id });
+    const activeSessions = await redisClient.ft.search(
+    "userIdIdx", 
+    `@userId:{${user.id}}`)
+   if (activeSessions.total >= MAX_SESSIONS) {
+      await redisClient.del(activeSessions.documents[0].id)
     }
 
     if (!user.picture.includes("googleusercontent.com")) {
@@ -86,22 +84,27 @@ export const loginWithGoogle = async (req, res, next) => {
         { $set: { picture: userData.picture } }
       );
     }
-    const loginSession = await Session.create([
-      {
+    const maxAge = 1000 * 60 * 60 * 24 * 7
+
+    const sessionId = crypto.randomUUID()
+      const redisKey = `session:${sessionId}`
+      await redisClient.json.set(redisKey, "$", {
         userId: user._id,
         userAgent: req.headers["user-agent"],
-        ipAddress: req.ip,
-        deviceName: parseDevice(req.headers["user-agent"]),
-        lastActiveAt: new Date(),
-        isRevoked: false,
-      },
-    ]);
-    const sid = loginSession[0]._id.toString();
-    res.cookie("sid", sid, {
+            ipAddress: req.ip,
+            deviceName: parseDevice(req.headers["user-agent"]),
+            lastActiveAt: new Date(),
+            isRevoked: false,  
+      
+      } )
+      redisClient.expire(redisKey, maxAge/1000)
+
+    
+    res.cookie("sid", sessionId, {
       httpOnly: true,
       signed: true,
       sameSite: "lax",
-      maxAge: 1000 * 60 * 60 * 24 * 7,
+      maxAge:maxAge
     });
     return res.status(201).json({ message: "User Logged In", user });
   }
@@ -140,22 +143,24 @@ export const loginWithGoogle = async (req, res, next) => {
       ],
       { mongooseSession }
     );
-
-    // await Session.deleteMany({ userId: newUser._id });
-    // res.clearCookie('sid')
-    const loginSession = await Session.create([{ 
-      userId: newUser._id,
-       userAgent: req.headers["user-agent"],
-        ipAddress: req.ip,
-        deviceName: parseDevice(req.headers["user-agent"]),
-        lastActiveAt: new Date(),
-        isRevoked: false,   
-    }], {
+      const maxAge = 1000 * 60 * 60 * 24 * 7;
+     const sessionId = crypto.randomUUID()
+      const redisKey = `session:${sessionId}`
+      await redisClient.json.set(redisKey, "$", {
+        userId: newUser._id,
+        userAgent: req.headers["user-agent"],
+            ipAddress: req.ip,
+            deviceName: parseDevice(req.headers["user-agent"]),
+            lastActiveAt: new Date(),
+            isRevoked: false,  
+      
+      },{
       mongooseSession,
-    });
+    } )
+      redisClient.expire(redisKey, maxAge/1000)
 
-    // console.log(loginSession), loginSession[0]._id.toString();
-    const sid = loginSession[0]._id.toString();
+  
+    const sid = sessionId;
     res.cookie("sid", sid, {
       httpOnly: true,
       signed: true,
@@ -172,84 +177,7 @@ export const loginWithGoogle = async (req, res, next) => {
   // res.json({msg: "Google login endpoint hit", user})
 };
 
-// export const loginWithGoogle = async (req, res, next) => {
-//   // Implementation for Google login
-//   const { idToken } = req.body;
-//   const userData = await verifyIdToken(idToken)
 
-//   const { email } = userData;
-
-//   let user = await User.findOne({ email }).select('-__v -createdAt -updatedAt -authProvider').lean();
-//   if (user) {
-//      await Session.deleteMany({ userId: user._id });
-//     res.clearCookie('sid')
-
-//     if(!user.picture.includes("googleusercontent.com")) {
-//       user.picture = userData.picture;
-//       // await user.save()
-//       await User.updateOne({ _id: user._id }, { $set: { picture: userData.picture } })
-//     }
-
-//     const loginSession = await Session.create([{ userId: user._id }])
-//     const sid = loginSession[0]._id.toString()
-//   res.cookie('sid', sid, {
-//     httpOnly: true,
-//     signed: true,
-//     sameSite: "lax",
-//     maxAge: 1000 * 60 * 60 * 24 * 7 ,
-//   })
-//     res.status(201).json({ message: 'User Logged In', user })
-//   }
-//   const mongooseSession = await mongoose.startSession();
-
-//   // Start transaction properly
-//   mongooseSession.startTransaction();
-
-//   try {
-//     const userRootDirId = new mongoose.Types.ObjectId();
-//      const userId = new mongoose.Types.ObjectId();
-
-//     const newUser = await User.insertOne({
-//       _id: userId,
-//       fullname: userData.name,
-//       email: userData.email,
-//       picture: userData.picture,
-//       // password,
-//       authProvider: "google",
-//       // providerId: null,
-//       rootDirId: userRootDirId
-//     }, { mongooseSession })
-//    await Directory.create([{
-//       _id: userRootDirId,
-//       name: `root-${email}`,
-//       parentDirId: null,
-//       userId,
-//       isDirectory: true
-//     }], { mongooseSession })
-
-//     // await Session.deleteMany({ userId: newUser._id });
-//     // res.clearCookie('sid')
-//     const loginSession = await Session.create([{ userId: newUser._id }], { mongooseSession })
-
-//     console.log(loginSession), loginSession[0]._id.toString();
-//     const sid = loginSession[0]._id.toString()
-//   res.cookie('sid', sid, {
-//     httpOnly: true,
-//     signed: true,
-//     sameSite: "lax",
-//     maxAge: 1000 * 60 * 60 * 24 * 7 ,
-//   })
-//    await mongooseSession.commitTransaction();
-//   console.log("loginSession created", req.signedCookies);
-//   res.status(201).json({ message: 'User Registered and logged in', sid })
-
-//   } catch (err) {
-//     next(err)
-//   } finally {
-//     await mongooseSession.endSession();
-//   }
-//   // res.json({msg: "Google login endpoint hit", user})
-// }
 
 export const githubCallback = async (req, res, next) => {
   const { code } = req.query;
@@ -261,14 +189,15 @@ export const githubCallback = async (req, res, next) => {
     .select("-__v -createdAt -updatedAt -authProvider")
     .lean();
   if (user) {
-    const MAX_SESSIONS = 3;
-    const activeSessions = await Session.find({
-      userId: user._id,
-      isRevoked: false,
-    }).sort({ createdAt: 1 });
-
-    if (activeSessions.length >= MAX_SESSIONS) {
-      await Session.deleteOne({ _id: activeSessions[0]._id });
+    if(user.isDeleted){
+   return res.status(403).json({error: "your account is deleted contact admin"})
+  }
+     const MAX_SESSIONS = 3;
+    const activeSessions = await redisClient.ft.search(
+    "userIdIdx", 
+    `@userId:{${user.id}}`)
+   if (activeSessions.total >= MAX_SESSIONS) {
+      await redisClient.del(activeSessions.documents[0].id)
     }
 
     if (!user.picture.includes("googleusercontent.com")) {
@@ -280,20 +209,26 @@ export const githubCallback = async (req, res, next) => {
       );
     }
 
-    const loginSession = await Session.create([{ 
-      userId: user._id ,
-     userAgent: req.headers["user-agent"],
-        ipAddress: req.ip,
-        deviceName: parseDevice(req.headers["user-agent"]),
-        lastActiveAt: new Date(),
-        isRevoked: false,
-    }]);
-    const sid = loginSession[0]._id.toString();
-    res.cookie("sid", sid, {
+    const maxAge = 1000 * 60 * 60 * 24 * 7
+
+    const sessionId = crypto.randomUUID()
+      const redisKey = `session:${sessionId}`
+      await redisClient.json.set(redisKey, "$", {
+        userId: user._id,
+        userAgent: req.headers["user-agent"],
+            ipAddress: req.ip,
+            deviceName: parseDevice(req.headers["user-agent"]),
+            lastActiveAt: new Date(),
+            isRevoked: false,  
+      
+      } )
+      redisClient.expire(redisKey, maxAge/1000)
+    
+    res.cookie("sid", sessionId, {
       httpOnly: true,
       signed: true,
       sameSite: "lax",
-      maxAge: 1000 * 60 * 60 * 24 * 7,
+      maxAge: maxAge,
     });
     res.redirect(redirectURL);
     res.status(201).json({ message: "User Logged In", user });
@@ -334,29 +269,32 @@ export const githubCallback = async (req, res, next) => {
       { mongooseSession }
     );
 
-    await Session.deleteMany({ userId: newUser._id });
-    res.clearCookie("sid");
-    const loginSession = await Session.create([{ 
-      userId: newUser._id,
-       userAgent: req.headers["user-agent"],
-        ipAddress: req.ip,
-        deviceName: parseDevice(req.headers["user-agent"]),
-        lastActiveAt: new Date(),
-        isRevoked: false,   
-    }], {
+    
+   const maxAge = 1000 * 60 * 60 * 24 * 7;
+     const sessionId = crypto.randomUUID()
+      const redisKey = `session:${sessionId}`
+      await redisClient.json.set(redisKey, "$", {
+        userId: newUser._id,
+        userAgent: req.headers["user-agent"],
+            ipAddress: req.ip,
+            deviceName: parseDevice(req.headers["user-agent"]),
+            lastActiveAt: new Date(),
+            isRevoked: false,  
+      
+      },{
       mongooseSession,
-    });
+    } )
+      redisClient.expire(redisKey, maxAge/1000)
 
    
-    const sid = loginSession[0]._id.toString();
-    res.cookie("sid", sid, {
+    
+    res.cookie("sid", sessionId, {
       httpOnly: true,
       signed: true,
       sameSite: "lax",
       maxAge: 1000 * 60 * 60 * 24 * 7,
     });
     await mongooseSession.commitTransaction();
-    console.log("loginSession created", req.signedCookies);
     res.redirect(redirectURL);
     res.status(201).json({ message: "User Registered and logged in", user: newUser});
   } catch (err) {

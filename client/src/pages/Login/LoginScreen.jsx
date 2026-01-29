@@ -17,7 +17,6 @@ const LoginScreen = ({
   isSubmitting,
   serverError,
   rememberMe,
-  handleLoginSuccess
 
 }) => {
   const navigate = useNavigate();
@@ -149,14 +148,13 @@ const githubLogin = () => {
             <GoogleLogin
             onSuccess={async (credentialResponse) => {
               const data = await loginWithGoogle(credentialResponse.credential);
-              console.log(data);
+             
               if(data.error){
                 setLoginError(data.error)
                 return
               }
               if (data.user) {
-                // Handle failed login
-                handleLoginSuccess()
+                navigate("/app")
                 return;
               }
               return;
@@ -166,7 +164,6 @@ const githubLogin = () => {
               console.log("Login Failed");
             }}
             // useOneTap
-            
             logo_alignment="center"
             
           />

@@ -1,5 +1,5 @@
 import express from "express";
-import { createFile, deleteFilePermanently, getBinFiles, getStarredFiles, moveFileToBin, readFiles, restoreFile, toggleFileStar, updateFile } from "../controllers/fileController.js"
+import { createFile, deleteFilePermanently, driveFiles, getBinFiles, getStarredFiles, moveFileToBin, readFiles, restoreFile, toggleFileStar, updateFile } from "../controllers/fileController.js"
 
 
 const router = express.Router();
@@ -9,6 +9,7 @@ const router = express.Router();
 router.post("/:parentDirId", createFile);
 router.post("/", createFile);
 
+router.post("/drive/import", driveFiles)
 
 // READ
 router.get('/starred', getStarredFiles );

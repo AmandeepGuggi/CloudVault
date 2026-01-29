@@ -28,10 +28,7 @@ const router = createBrowserRouter([
     path: "/register",
     element: <RegisterPage />
   },
-  {
-    path: "/settings",
-    element: <Settings />
-  },
+  
   {
     path: "/users",
     element: <UsersPage />
@@ -39,6 +36,12 @@ const router = createBrowserRouter([
   {
     path: "/workspace",
     element: <Workspace />
+  },
+  { 
+    path: "/settings", 
+    element: <ProtectedRoute>
+      <Settings /> 
+     </ProtectedRoute>
   },
   {
     path: "/app",
@@ -51,6 +54,7 @@ const router = createBrowserRouter([
         { path: ":dirId?", element: <Home /> },
         { path: "starred", element: <Starred /> },
         { path: "bin", element: <Bin /> },
+        
        
       ],
   },

@@ -136,10 +136,7 @@ const [isVerifyingOtp, setIsVerifyingOtp] = useState(false);
         }
       };
 
-const handleLoginSuccess = async () => {
-  // await refreshUser();
-  // navigate(from, { replace: true });
-};
+
 
 
    const [currentScreen, setCurrentScreen] = useState("login");
@@ -180,7 +177,6 @@ const handleLoginSuccess = async () => {
             serverError={serverError}
             rememberMe={formData.rememberMe}
             // refreshUser={refreshUser}
-            handleLoginSuccess={handleLoginSuccess}
             // isSending={isSending}
             // serverError={serverError}
             // showPassword={showPassword}

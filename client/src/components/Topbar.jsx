@@ -14,7 +14,7 @@ export default function Topbar({
 }) {
 const wrapperRef = useRef(null);
 const popupRef = useRef(null);
-const { user } = useAuth();
+const { user, logout } = useAuth();
    const navigate = useNavigate();
 
    const [loggedIn, setLoggedIn] = useState(false);
@@ -65,6 +65,7 @@ const clearNotifications = async () => {
 useEffect(()=> {
 
 if (!user) return; 
+setLoggedIn(true)
  fetchNotifications();
 
  function handleClickOutside(e) {
@@ -78,7 +79,6 @@ if (!user) return;
 },[])
 
     const handleLogout = async () => {
-      console.log("logout clicked");
     try {
       const response = await fetch(`${BASE_URL}/user/logout`, {
         method: "POST",
@@ -90,7 +90,8 @@ if (!user) return;
         setLoggedIn(false);
         setUserName("");
         setUserEmail("");
-        // navigate("/login", { replace: true });
+        navigate("/login");
+        setLoggedIn(false)
       } else {
         console.error("Logout failed");
       }
@@ -190,7 +191,7 @@ if (!user) return;
     className=" md:flex items-center justify-center w-9 h-9 rounded-md text-black hover:text-gray-700 hover:bg-gray-100 transition"
     aria-label="Settings"
     // onClick={() => navigate("/settings")}
-    onClick={() => navigate("/workspace")}
+    onClick={() => navigate("/settings")}
   >
     <Settings size={18} />
   </button>

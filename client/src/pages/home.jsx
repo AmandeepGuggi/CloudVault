@@ -11,6 +11,7 @@ import { useAuth } from "../context/AuthContext.jsx";
 
 
 export default function Home() {
+  
   const { refreshUser , user} = useAuth();
   const [view, setView] = useState("list"); 
   const [sortBy, setSortBy] = useState("name"); 
@@ -21,6 +22,115 @@ const [sortOrder, setSortOrder] = useState("asc");
   const { dirId } = useParams();
   const navigate = useNavigate();
   const [breadcrumbs, setBreadcrumbs] = useState([]);
+
+  // new google.picker.PickerBuilder()
+  // .addView(google.picker.ViewId.DOCS)
+  // .setOAuthToken(accessToken)
+  // .setDeveloperKey(GOOGLE_API_KEY)
+  // .setCallback(pickerCallback)
+  // .build()
+  // .setVisible(true);
+ const clientId = import.meta.env.VITE_DRIVE_CLIENT_ID;
+ const apiKey = import.meta.env.VITE_GOOGLE_API_KEY;
+ const [driveToken, setDriveToken] = useState(null);
+
+//   useEffect(() => {
+//   const loadScript = (src) =>
+//     new Promise((resolve) => {
+//       const script = document.createElement("script");
+//       script.src = src;
+//       script.onload = resolve;
+//       document.body.appendChild(script);
+//     });
+
+//   (async () => {
+//     await loadScript("https://accounts.google.com/gsi/client");
+//     await loadScript("https://apis.google.com/js/api.js");
+//   })();
+// }, []);
+
+
+useEffect(() => {
+  const loadScript = (src) =>
+    new Promise((resolve) => {
+      const script = document.createElement("script");
+      script.src = src;
+      script.onload = resolve;
+      document.body.appendChild(script);
+    });
+
+  (async () => {
+    // Load OAuth client
+    await loadScript("https://accounts.google.com/gsi/client");
+
+    // Load Google API platform
+    await loadScript("https://apis.google.com/js/api.js");
+
+    // 🔥 THIS IS THE MISSING PIECE
+    window.gapi.load("picker", () => {
+      console.log("Google Picker loaded");
+    });
+  })();
+}, []);
+
+const requestDriveToken = () => {
+  const tokenClient = google.accounts.oauth2.initTokenClient({
+    client_id: clientId,
+    scope: "https://www.googleapis.com/auth/drive.readonly",
+    callback: (tokenResponse) => {
+    setDriveToken(tokenResponse.access_token);
+    openPicker(tokenResponse.access_token);
+}
+
+  });
+
+  tokenClient.requestAccessToken();
+};
+
+const openPicker = (accessToken) => {
+  if (!window.google?.picker) {
+    console.error("Google Picker not loaded yet");
+    return;
+  }
+
+  const picker = new window.google.picker.PickerBuilder()
+    .addView(window.google.picker.ViewId.DOCS)
+    .setOAuthToken(accessToken)
+    .setDeveloperKey(apiKey)
+    .setCallback((pickerCallback))
+    
+    .build();
+
+  picker.setVisible(true);
+};
+
+const pickerCallback = (data) => {
+  if (data.action !== google.picker.Action.PICKED) return;
+
+  const files = data.docs.map((doc) => ({
+    id: doc.id,
+    name: doc.name,
+    mimeType: doc.mimeType,
+  }));
+
+  importFromDrive(files, driveToken);
+};
+
+const importFromDrive = async (files, accessToken) => {
+  await fetch(`${BASE_URL}/file/drive/import`, {
+    method: "POST",
+    headers: {
+      "Content-Type": "application/json",
+    },
+    credentials: "include",
+    body: JSON.stringify({ files, accessToken }),
+  });
+  console.log("drive files", files);
+
+  getDirectoryItems();
+};
+
+
 
 
 async function buildBreadcrumbs(currentDirId) {
@@ -236,7 +346,9 @@ const [directoryName, setDirectoryName] = useState("My Files");
         xhr.open("POST", `${BASE_URL}/file/${dirId || ""}`, true);
         xhr.withCredentials = true;
     
-        xhr.setRequestHeader("filename", currentItem.name);
+        // xhr.setRequestHeader("filename", currentItem.name );
+        xhr.setRequestHeader("X-Filename", encodeURIComponent(currentItem.name));
+
     
     
     
@@ -584,6 +696,31 @@ return 0;
     <Upload size={16} />
     Upload File
   </button>
+  {/* <button
+    
+    className="flex items-center gap-2 px-4 py-2 text-sm font-medium border-gray-300 border cursor-pointer
+               rounded-md  text-black hover:bg-gray-300" 
+  >
+    google.accounts.oauth2.initTokenClient({
+  client_id: clientId,
+  scope: "https://www.googleapis.com/auth/drive.readonly",
+  callback: (tokenResponse) => {
+    // tokenResponse.access_token
+  }
+});
+
+    Import from drive
+  </button> */}
+
+<button
+  onClick={requestDriveToken}
+  className="flex items-center gap-2 px-4 py-2 text-sm font-medium
+             border border-gray-300 rounded-md hover:bg-gray-100"
+>
+  Import from Drive
+</button>
+  
+
   <input
           ref={fileInputRef}
           id="file-upload"

@@ -4,10 +4,12 @@ import { Lock, Smartphone, LogOut, Trash2, AlertCircle, X } from "lucide-react"
 import { useState } from "react"
 import { BASE_URL } from "../../../utility"
 import { useEffect } from "react"
+import { useAuth } from "../../../context/AuthContext"
 
 export function AccountSettings() {
+  const { user } = useAuth()
   const [formData, setFormData] = useState({
-    username: "Amandeep guggi",
+    username: user.name,
     currentPassword: "",
     newPassword: "",
     confirmPassword: "",

@@ -5,6 +5,7 @@ import Session from "../modals/sessionModal.js"
 import OTP from "../modals/otpModal.js";
 import Files from "../modals/fileModal.js";
 import redisClient from "../config/redis.js";
+import { parseDevice } from "../services/parseDevice.js";
 
 
 export const registerUser = async (req, res, next) => {
@@ -101,7 +102,6 @@ try{
     "userIdIdx", 
     `@userId:{${foundUser.id}}`)
    if (activeSessions.total >= MAX_SESSIONS) {
-      // await Session.deleteOne({ _id: activeSessions[0]._id });
       await redisClient.del(activeSessions.documents[0].id)
     }
 
@@ -126,13 +126,18 @@ try{
   // const session = await Session.create({userId: foundUser._id})
   const sessionId = crypto.randomUUID()
   const redisKey = `session:${sessionId}`
-  await redisClient.json.set(redisKey, "$", {userId: foundUser._id} )
+  await redisClient.json.set(redisKey, "$", {
+    userId: foundUser._id,
+    userAgent: req.headers["user-agent"],
+        ipAddress: req.ip,
+        deviceName: parseDevice(req.headers["user-agent"]),
+        lastActiveAt: new Date(),
+        isRevoked: false,  
+  
+  } )
   redisClient.expire(redisKey, maxAge/1000)
 
-  res.cookie('sid', 
-    sessionId
-    // session._id.toString()
-    , {
+  res.cookie('sid', sessionId, {
     httpOnly: true,
     signed: true,
     maxAge
