@@ -5,16 +5,16 @@ A **Google Drive–style file manager UI** built using **React** and **Tailwind 
 
 ## ✨ Features
 
-🔐 Secure auth + session handling
-⚡ Google OAuth (One Tap) & GitHub OAuth
-🔔 Real-time notifications
-📱 Multi-device login & logout
-📂 Upload files from google drive
-📤 File upload, rename, delete
-📁 Folder structure
-⭐ Starred files
-🗑️ Recycle bin system
-
+- 🔐 Secure auth + session handling
+- ⚡ Google OAuth (One Tap) & GitHub OAuth
+- 🔔 Real-time notifications
+- 📱 Multi-device login & logout
+- 📂 Upload files from google drive
+- 📤 File upload, rename, delete
+- 📁 Folder structure
+- ⭐ Starred files
+- 🗑️ Recycle bin system
+- Redis based session management
 ---
 
 ## Screenshots
