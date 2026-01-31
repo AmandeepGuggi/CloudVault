@@ -159,13 +159,15 @@ export const createFile = async (req, res, next) => {
 };
 
 export const driveFiles = async (req, res) => {
-  const _id = req.params.parentDirId ?? req.user.rootDirId;
+   const { files, accessToken, dirId } = req.body;
+   console.log(req.body);
+  const _id = dirId ?? req.user.rootDirId;
   const parentDirData = await Directory.findOne({ _id });
   if (!parentDirData) {
     return res.status(404).json({ error: "Parent directory does not exist" });
   }
   try {
-    const { files, accessToken } = req.body;
+   
     const userId = req.user?._id; // or however you store session user
  
     if (!userId) {
@@ -222,7 +224,6 @@ async function importSingleFile(file, accessToken, userId, parentDirData) {
   if (!downloadRes.ok) {
     throw new Error("Failed to download Drive file");
   }
-  console.log("bodyres", downloadRes);
   const extension = path.extname(meta.name)
 
    const insertedFile = await Files.insertOne({
@@ -319,13 +320,6 @@ async function importSingleFile(file, accessToken, userId, parentDirData) {
        await User.updateOne(
     { _id: userId },
     { $inc: { storageUsed: meta.size } })
-
-    // const writeStream = createWriteStream(`./storage/${fullFileName}`);
-    //  req.pipe(writeStream);
-
-
-
-
 
   // 4️⃣ Insert DB record (example)
   await saveFileToDB({

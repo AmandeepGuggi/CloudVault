@@ -15,7 +15,6 @@ A **Google Drive–style file manager UI** built using **React** and **Tailwind 
 - ⭐ Starred files
 - 🗑️ Recycle bin system
 - Redis based session management
----
 
 ## Screenshots
 

@@ -22,32 +22,11 @@ const [sortOrder, setSortOrder] = useState("asc");
   const { dirId } = useParams();
   const navigate = useNavigate();
   const [breadcrumbs, setBreadcrumbs] = useState([]);
+const [openShareFile, setOpenShareFile] = useState(false)
 
-  // new google.picker.PickerBuilder()
-  // .addView(google.picker.ViewId.DOCS)
-  // .setOAuthToken(accessToken)
-  // .setDeveloperKey(GOOGLE_API_KEY)
-  // .setCallback(pickerCallback)
-  // .build()
-  // .setVisible(true);
  const clientId = import.meta.env.VITE_DRIVE_CLIENT_ID;
  const apiKey = import.meta.env.VITE_GOOGLE_API_KEY;
- const [driveToken, setDriveToken] = useState(null);
-
-//   useEffect(() => {
-//   const loadScript = (src) =>
-//     new Promise((resolve) => {
-//       const script = document.createElement("script");
-//       script.src = src;
-//       script.onload = resolve;
-//       document.body.appendChild(script);
-//     });
-
-//   (async () => {
-//     await loadScript("https://accounts.google.com/gsi/client");
-//     await loadScript("https://apis.google.com/js/api.js");
-//   })();
-// }, []);
+ const [driveToken, setDriveToken] = useState("");
 
 
 useEffect(() => {
@@ -80,8 +59,7 @@ const requestDriveToken = () => {
     callback: (tokenResponse) => {
     setDriveToken(tokenResponse.access_token);
     openPicker(tokenResponse.access_token);
-}
-
+  }
   });
 
   tokenClient.requestAccessToken();
@@ -113,21 +91,22 @@ const pickerCallback = (data) => {
     mimeType: doc.mimeType,
   }));
 
-  importFromDrive(files, driveToken);
+  importFromDrive(files);
 };
 
-const importFromDrive = async (files, accessToken) => {
-  await fetch(`${BASE_URL}/file/drive/import`, {
+const importFromDrive = async (files) => {
+  const response = await fetch(`${BASE_URL}/file/drive/import`, {
     method: "POST",
     headers: {
       "Content-Type": "application/json",
     },
     credentials: "include",
-    body: JSON.stringify({ files, accessToken }),
+    body: JSON.stringify({ files, accessToken: driveToken, dirId: dirId ? dirId : "" }),
   });
+  if(response.ok){
+    getDirectoryItems()
+  }
   console.log("drive files", files);
-
-  getDirectoryItems();
 };
 
 
@@ -557,12 +536,7 @@ async function moveFolderToBin(folderId) {
       }
     }
 
-      function openRename(type, id, currentName) {
-        setRenameType(type);
-        setRenameId(id);
-        setRenameValue(currentName);
-        setShowRenameModal(true);
-      }
+   
       function closeRename() {
         setRenameType(null);
         setRenameId("");
