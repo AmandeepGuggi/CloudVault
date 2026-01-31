@@ -19,7 +19,11 @@
   background-color: #2563eb;
 }
 .bg-kala {
-  background-color: #171717;
+  /* background-color: #171717; */
+  background-color: #0056a9;
+}
+.text-kala{
+  color: #0056a9;
 }
 
 @keyframes spin {

@@ -135,7 +135,7 @@ async function getUser() {
      {/* <div className="flex justify-between border w-full ">  */}
        <div className=" hidden md:flex items-center gap-4">
         <div onClick={()=> navigate("/app")} className="flex items-center gap-2 font-semibold text-lg">
-            <div  className="flex h-8 w-8 ml-1 items-center  justify-center rounded bg-black text-primary-foreground">
+            <div  className="flex h-8 w-8 ml-1 items-center  justify-center rounded bg-kala text-primary-foreground">
               <FaCloud className="h-4 w-4  text-white" />
             </div>
             <span className="hidden sm:inline text-foreground">CloudVault</span>

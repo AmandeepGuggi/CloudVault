@@ -31,9 +31,10 @@ export default function DashboardLayout() {
           onToggleSidebar={() => setSidebarOpen((prev) => !prev)}
           showProfile={showProfile}
           setShowProfile={setShowProfile}
+          isCollapsed={sidebarOpen}
         />
 
-        <main className="p-3 h-full bg-primary  md:bg-white overflow-y-auto">
+        <main className="p-3 h-full bg-[#f8f9f9]  md:bg-white overflow-y-auto">
           <Outlet />
         </main>
 

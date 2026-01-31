@@ -1,7 +1,7 @@
 import { FaSearch } from "react-icons/fa";
 import ProfileMenu from "./ProfileMenu";
-import { Menu, Settings, Bell } from "lucide-react";
-
+import { Menu, Settings, Bell, Search } from "lucide-react";
+import { ChevronRight } from 'lucide-react';
 import { useRef, useEffect, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { BASE_URL } from "../utility";
@@ -11,6 +11,7 @@ export default function Topbar({
   onToggleSidebar,
   showProfile,
   setShowProfile,
+  isCollapsed
 }) {
 const wrapperRef = useRef(null);
 const popupRef = useRef(null);
@@ -103,14 +104,14 @@ setLoggedIn(true)
   };
 
   return (
-    <header className="flex items-center border-b border-gray-300 justify-between  px-4 lg:bg-primary relative">
-      <div className=" hidden md:flex items-center gap-4">
+    <header className="flex relative items-center border-b border-gray-300 justify-between  px-4 bg-[#f8f9f9] ">
+      <div className=" hidden absolute -left-2.5 bg-kala rounded-full md:flex items-center gap-4">
         <button variant="ghost" size="icon" onClick={onToggleSidebar} className="hover:bg-muted">
-          <Menu size={20} />
+          <ChevronRight size={25} className={`w-4.5 text-white h-4.5 transition-transform duration-200 ${isCollapsed ? 'rotate-180': ""} )`} />
         </button>
       </div>
-      <div className=" hidden md:flex lg:flex items-center w-full mr-4 py-1.75 px-4 outline-none">
-        <FaSearch className="inline mr-2 text-gray-400" />
+      <div className=" hidden md:flex bg-[#e4e4e6] rounded-lg lg:flex items-center w-full mr-4 py-0. m-1.75 px-4 outline-none">
+        <Search className="inline mr-2 w-4 h-4 text-gray-400" />
          <input
         className="w-[90%] py-2.25 text-[15px] border-0 outline-0"
         placeholder="Start typing to search your file"

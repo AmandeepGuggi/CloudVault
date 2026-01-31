@@ -2,7 +2,7 @@ import { useEffect, useRef, useState, useMemo } from "react";
 import NameModal from "../components/NameModal.jsx";
 import { useParams, useNavigate,  } from "react-router-dom";
 import { getUniquename, BASE_URL, getFileIcon, formatBytes } from "../utility";
-import { Filter, FolderPlus, LayoutGrid, List, MoreVertical, Upload } from "lucide-react";
+import { Filter, FolderPlus, LayoutGrid, List, MoreVertical, Upload, Download } from "lucide-react";
 import { FaFolder, FaStar, FaHome } from "react-icons/fa";
 import ContextMenu from "../components/ContextMenu.jsx";
 import { useAuth } from "../context/AuthContext.jsx"; 
@@ -186,6 +186,7 @@ const [directoryName, setDirectoryName] = useState("My Files");
     function handleClickOutside(e) {
       if (dropdownRef.current && !dropdownRef.current.contains(e.target)) {
         setOpen(false);
+        setSelectedItemId(null)
       }
     }
 
@@ -622,7 +623,9 @@ return 0;
   
     return [...sortedFolders, ...sortedFiles];
   }, [directoriesList, filesList, sortBy, sortOrder]);
-  
+  const folders = sortedItems.filter(item => item.size === undefined);
+const files = sortedItems.filter(item => item.size !== undefined);
+
   async function toggleStar(id, type) {
     console.log(id, type);
   const url =
@@ -650,7 +653,7 @@ return 0;
  
   return (
     <>
-        <div className="md:sticky md:-top-7 z-10 bg-primary md:bg-white ">
+        <div className="md:sticky md:-top-7 z-10 bg-[#ffffff] ">
         <div className="flex flex-col md:flex-row md:items-center justify-between py-2 border-b mb-6 border-gray-300">
 
   <div className=" hidden md:flex items-center gap-3">
@@ -659,8 +662,8 @@ return 0;
        setShowNewMenu(false);
       setShowCreateFolder(true);
     }}
-    className="flex items-center gap-2 px-4 py-2 text-sm font-medium
-               rounded-md border border-gray-300 text-gray-700 hover:bg-gray-100"
+    className="flex items-center gap-2 px-4 py-2 text-sm font-medium bg-[#e4e9ee]
+               rounded-md text-gray-700 hover:bg-[#e9eef3]"
   >
     <FolderPlus size={16} />
     Create Folder
@@ -671,7 +674,7 @@ return 0;
       fileInputRef.current.click();
     }}
     className="flex items-center gap-2 px-4 py-2 text-sm font-medium
-               rounded-md bg-kala text-white hover:bg-blue-700"
+               rounded-md bg-kala text-white cursor-pointer"
   >
     <Upload size={16} />
     Upload File
@@ -680,9 +683,10 @@ return 0;
 
 <button
   onClick={requestDriveToken}
-  className="flex items-center gap-2 px-4 py-2 text-sm font-medium
-             border border-gray-300 rounded-md hover:bg-gray-100"
+  className="flex items-center gap-2 px-4 py-2 text-sm font-medium bg-[#e4e9ee]
+            rounded-md hover:bg-[#e9eef3]"
 >
+  <Download size={16} />
   Import from Drive
 </button>
   
@@ -840,7 +844,7 @@ return 0;
 </div>
     </div>
 
-    <div className="px-3 pb-1 w-full bg-white border border-gray-300  rounded">
+    <div className="px-3 pb-1 mb-2 w-full bg-[#f8f9f9] border border-gray-300  rounded">
   <nav className="flex items-center text-sm text-gray-500 gap-1">
     <FaHome className="flex items-center mt-1.5" />
     {breadcrumbs.map((item, idx) => {
@@ -875,13 +879,6 @@ return 0;
 </div>
 
 
-      <div className="px-3 pb-2">
-   
-    {/* <p className="text-sm text-gray-400">
-      {sortedItems.length} items
-    </p> */}
-  </div>
-
   {view === "list" && (
   <div className="grid grid-cols-1 gap-4 pb-20 md:pb-2">
     {sortedItems.map((item) => {
@@ -894,7 +891,7 @@ const icon = getFileIcon(item.name)
       
     <div
   key={item.id}
-  className={`border rounded-lg px-4 py-1 cursor-pointer
+  className={`border rounded-lg px-4 py-1 cursor-pointer group
   ${selectedItemId === item.id ? "bg-blue-50 border-blue-400" : "hover:bg-gray-50"}
 `}
 
@@ -933,7 +930,7 @@ onDoubleClick={() => {
 
   // Prevent overflow at bottom
   if (y + menuHeight > viewportHeight) {
-    y = viewportHeight - menuHeight - 8;
+    y = viewportHeight - menuHeight - 80;
   }
 
   setMenuState({
@@ -968,7 +965,7 @@ onDoubleClick={() => {
       <FaStar onClick={(e) => {
         e.stopPropagation()
         toggleStar(item.id, item.isDirectory)
-        }} className={` ${item.isStarred ? "text-gray-400" : "text-gray-400  opacity-0 group-hover:opacity-100"} transition-opacity`} />
+        }} className={` ${item.isStarred ? "text-yellow-400" : "text-gray-400  opacity-0 group-hover:opacity-100"} transition-opacity`} />
         
       <MoreVertical onClick={(e) => {
     if (isUploadingItem) return; 
@@ -991,7 +988,7 @@ onDoubleClick={() => {
 
   // Prevent overflow at bottom
   if (y + menuHeight > viewportHeight) {
-    y = viewportHeight - menuHeight - 8;
+    y = viewportHeight - menuHeight - 80;
   }
 
   setMenuState({
@@ -1041,9 +1038,11 @@ onDoubleClick={() => {
     )})}
   </div>
 )}
+{/* for folders */}
 {view === "grid" && (
   <div className="grid grid-cols-2  sm:grid-cols-3 md:grid-cols-3 gap-2">
-    {sortedItems.map((item) => {
+    {
+    folders.map((item) => {
       const isUploadingItem = 
   !item.isDirectory && item.id.startsWith("temp-");
 const uploadProgress = progressMap[item.id] || 0;
@@ -1052,11 +1051,21 @@ const uploadProgress = progressMap[item.id] || 0;
       
     <div
   key={item.id}
- 
-  onClick={() =>
-    !(activeContextMenu || isUploading) &&
-    handleRowClick(item.isDirectory ? "directory" : "file", item.id)
+ className={` my-2
+`}
+   onClick={() => {
+  if (isUploading) return;
+  setSelectedItemId(item.id);
+}}
+onDoubleClick={() => {
+  if (isUploading) return;
+
+  if (item.isDirectory) {
+    navigate(`/app/${item.id}`);
+  } else {
+    window.open(`${BASE_URL}/file/${item.id}`, "_blank");
   }
+}}
   onContextMenu={(e) => {
     if (isUploadingItem) return; 
     e.preventDefault();
@@ -1092,20 +1101,21 @@ const uploadProgress = progressMap[item.id] || 0;
   {/* Top row */}
 
       {item.size === undefined ? (
-        <div  className="border group border-gray-300 rounded-lg px-4 py-1 cursor-pointer hover:bg-gray-50">
+        <div  className={`border group  rounded-lg px-4 py-1 cursor-pointer  ${selectedItemId === item.id ? "bg-blue-50 border-blue-400" : "hover:bg-gray-50 border-gray-300  "}`}>
          <div className="flex justify-between w-full">
-           <div className="flex items-center gap-2 min-w-0"> 
-            <FaFolder className="text-4xl text-black shrink-0" />
-             <div className="flex flex-col truncate min-w-0">
-        <p className="text-sm truncate">{item.name}</p>
+           <div className="flex  items-center  min-w-0"> 
+            <FaFolder className="text-4xl text-kala shrink-0" />
+             <div className="flex flex-col truncate min-w-0 ">
+        <p className="text-sm truncate pl-1">{item.name}</p>
       </div>
      
         </div>
          <div className="flex items-center gap-2 shrink-0">
       <FaStar onClick={(e) => {
         e.stopPropagation()
+        setSelectedItemId(item.id);
         toggleStar(item.id, item.isDirectory)
-        }} className={` ${item.isStarred ? "text-gray-400" : "text-gray-400  opacity-0 group-hover:opacity-100"} transition-opacity`}  />
+        }} className={` ${item.isStarred ? "text-yellow-400" : "text-gray-400  opacity-0 group-hover:opacity-100"} transition-opacity`}  />
       <MoreVertical onClick={(e) => {
     if (isUploadingItem) return; 
     e.preventDefault();
@@ -1140,7 +1150,7 @@ const uploadProgress = progressMap[item.id] || 0;
     </div>
          </div>
          </div>
-      ) : null }
+      ) : "aman" }
 
 
   {/* Uploading row (INLINE, BELOW NAME) */}
@@ -1180,9 +1190,12 @@ const uploadProgress = progressMap[item.id] || 0;
     )})}
   </div>
 )}
+
+{/* for files */}
+
 {view === "grid" && (
   <div className="grid grid-cols-2 pb-20 md:pb-2 sm:grid-cols-3 md:grid-cols-3 gap-2">
-    {sortedItems.filter(item => item.size !== undefined).map((item) => {
+    {files.filter(item => item.size !== undefined).map((item) => {
       const isUploadingItem = 
   !item.isDirectory && item.id.startsWith("temp-");
 const uploadProgress = progressMap[item.id] || 0;
@@ -1217,7 +1230,7 @@ const icon = getFileIcon(item.name);
 
   // Prevent overflow at bottom
   if (y + menuHeight > viewportHeight) {
-    y = viewportHeight - menuHeight - 8;
+    y = viewportHeight - menuHeight - 80;
   }
 
   setMenuState({
@@ -1247,7 +1260,7 @@ const icon = getFileIcon(item.name);
       <FaStar onClick={(e) => {
         e.stopPropagation()
         toggleStar(item.id, item.isDirectory)
-        }} className={` ${item.isStarred ? "text-gray-400" : "text-gray-400  opacity-0 group-hover:opacity-100"} transition-opacity`}  />
+        }} className={` ${item.isStarred ? "text-yellow-400" : "text-gray-400  opacity-0 group-hover:opacity-100"} transition-opacity`}  />
       <MoreVertical onClick={(e) => {
     if (isUploadingItem) return; 
     e.preventDefault();
@@ -1268,7 +1281,7 @@ const icon = getFileIcon(item.name);
 
   // Prevent overflow at bottom
   if (y + menuHeight > viewportHeight) {
-    y = viewportHeight - menuHeight - 8;
+    y = viewportHeight - menuHeight - 18;
   }
 
   setMenuState({
