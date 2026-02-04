@@ -1,7 +1,8 @@
 import mongoose from "mongoose";
 
 
-const connectionStr = "mongodb://driveAdmin:driveAdmin@localhost:27017/driveClone?authSource=admin&replicaSet=rs0"
+// const connectionStr = "mongodb://driveAdmin:driveAdmin@localhost:27017/driveClone?authSource=admin&replicaSet=rs0"
+const connectionStr = process.env.MONGODB_URI
 export async function connectDB() {
   try{
     console.log("connected Databse");

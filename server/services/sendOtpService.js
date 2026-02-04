@@ -2,7 +2,7 @@ import nodemailer from "nodemailer"
 import OTP from "../modals/otpModal.js";
 
 
-const AppKey = 'einjyuecycxsbnae'
+const AppKey = process.env.APP_KEY
 
 const transporter = nodemailer.createTransport({
   host: "smtp.gmail.com",

@@ -15,7 +15,8 @@ import checkAuth from "./auth/checkUserAuth.js";
 
 try {
   const app = express();
-app.use(cookieParser("storageDrive-guggi-123#"));
+  const cookieSecret = process.env.COOKIE_SECRET
+app.use(cookieParser(cookieSecret));
 
 app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
@@ -26,7 +27,7 @@ app.use(
 
 app.use(
   cors({
-    origin: "http://localhost:5173",
+    origin: process.env.CLIENT_BASE_URL,
     methods: ["GET", "POST", "PUT", "DELETE", "PATCH"],
     credentials: true,
   })
@@ -46,10 +47,10 @@ app.use("/auth", authRoutes);
 
 app.use('/owner',checkAuth , ownerRoutes)
 
+const PORT = process.env.PORT || 4000
 
-
-app.listen(4000, () => {
-  console.log(`Server Started at http://localhost:4000/`);
+app.listen(PORT, () => {
+  console.log(`Server Started at http://localhost:${PORT}/`);
 });
 
 } catch (error) {

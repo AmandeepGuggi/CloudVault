@@ -1,5 +1,3 @@
-import dotenv from "dotenv";
-dotenv.config();
 import mongoose from "mongoose";
 import OTP from "../modals/otpModal.js";
 import User from "../modals/userModal.js";
@@ -12,15 +10,6 @@ import { UAParser } from "ua-parser-js";
 import { parseDevice } from "../services/parseDevice.js";
 import redisClient from "../config/redis.js";
 
-// const parseDevice = (userAgent) => {
-//   const parser = new UAParser(userAgent);
-//   const result = parser.getResult();
-
-//   const browser = result.browser.name || "Unknown Browser";
-//   const os = result.os.name || "Unknown OS";
-
-//   return `${browser} on ${os}`;
-// };
 
 export const sendOtp = async (req, res) => {
   const { email } = req.body;
