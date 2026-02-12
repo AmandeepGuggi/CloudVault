@@ -8,26 +8,35 @@ import redisClient from "../config/redis.js";
 import { parseDevice } from "../services/parseDevice.js";
 
 
+export const verifyOtp = async (req, res) => {
+  const { email, otp } = req.body;
+ 
+  console.log("object", updatedOtp);
+  res.json({ msg: "otp verified" });
+};
+
 export const registerUser = async (req, res, next) => {
-  const { fullname, email, password } = req.body
-  console.log("formata received", fullname, email, password );
-   const otpRecord = await OTP.findOne({ email, verified: true });
-   if (!otpRecord) {
-    return res.status(401).json({ error: "OTP not verified" });
+  const { fullname, email, password, otp } = req.body
+  console.log({ fullname, email, password, otp });
+   const otpRecord = await OTP.findOne({ email });
+  if(otpRecord && otpRecord.verified){
+    return res.json({ error: "OTP already used" });
+  }else if(otpRecord && otpRecord.otp !== otp){
+    return res.json({ error: "Invalid OTP" });
+  }else if (!otpRecord) {
+    return res.json({ error: "expired OTP" });
   }
+  
+  const updatedOtp = await OTP.updateOne(
+    { email },
+    { $set: { verified: true } }
+  );
+  console.log("updatedOtp", updatedOtp);
+  if(updatedOtp.modifiedCount === 0){
+    return res.json({ error: "OTP verification failed" });
+  }else if (updatedOtp.modifiedCount >= 1){
 
-  const foundUser = await User.exists({ email })
-  // console.log("hii", {foundUser});
-  if (foundUser) {
-    return res.status(409).json({
-      error: "User with this email already exists",
-      message: "A user with this email address already exists. Please try logging in or use a different email."
-    })
-  }
-
-  // return res.status(201).end() // temporary to skip registration
-    
-  const session = await mongoose.startSession();
+      const session = await mongoose.startSession();
 
   // Start transaction properly
   session.startTransaction();
@@ -53,17 +62,34 @@ export const registerUser = async (req, res, next) => {
       isDirectory: true
     }], { session })
 
-    const loginSession = await Session.create([{ userId }], { session })
-    await OTP.deleteMany({ email });
-    await session.commitTransaction();
+    const maxAge = 1000 * 60 * 60 * 24 * 7;
+      
+    const sessionId = crypto.randomUUID()
+  const redisKey = `session:${sessionId}`
+  await redisClient.json.set(redisKey, "$", {
+    userId: userId,
+    userAgent: req.headers["user-agent"],
+        ipAddress: req.ip,
+        deviceName: parseDevice(req.headers["user-agent"]),
+        lastActiveAt: new Date(),
+        isRevoked: false,  
+  
+  } )
+  redisClient.expire(redisKey, maxAge/1000)
 
-  res.cookie('sid', loginSession[0]._id.toString(), {
+  res.cookie('sid', sessionId, {
     httpOnly: true,
     signed: true,
-    sameSite: "lax",
-    maxAge: 1000 * 60 * 60 * 24 * 7 ,
-  },)
+    maxAge
+  })
+
+
+    await session.commitTransaction();
+
+  
   // console.log("loginSession created", req.signedCookies);
+  const delteOtp = await otpRecord.deleteOne()
+  console.log("delted?", delteOtp);
   res.status(201).json({ message: 'User Registered and logged in', status: 201 })
     
   } catch (err) {
@@ -78,6 +104,11 @@ export const registerUser = async (req, res, next) => {
   } finally {
     await session.endSession();
   }
+  }
+
+  // return res.status(201).end() // temporary to skip registration
+    
+
 
 }
 
@@ -106,24 +137,14 @@ try{
     }
 
 
-    //  const loginSession = await Session.create([
-    //   {
-    //     userId: user._id,
-    //     userAgent: req.headers["user-agent"],
-    //     ipAddress: req.ip,
-    //     deviceName: parseDevice(req.headers["user-agent"]),
-    //     lastActiveAt: new Date(),
-    //     isRevoked: false,
-    //   },
-    // ]);
-    // const sid = loginSession[0]._id.toString();
+   
 
   
  const maxAge = rememberMe
       ? 1000 * 60 * 60 * 24 * 7
       : 1000 * 60 * 60 * 24;
 
-  // const session = await Session.create({userId: foundUser._id})
+  
   const sessionId = crypto.randomUUID()
   const redisKey = `session:${sessionId}`
   await redisClient.json.set(redisKey, "$", {
@@ -219,17 +240,29 @@ export const getUserDetails = async (req, res) => {
 export const logout = async (req, res) => {
   const { sid } = req.signedCookies;
   const {userId} = req.user
-  if (!sid) {
-    return res.status(204).end();
+  // if (!sid) {
+  //   return res.status(204).end();
+  // }
+  // await redisClient.del(`session:${sid}`)
+  // res.clearCookie("sid");
+  // res.status(204).end();
+  try {
+  if (sid) {
+    await redisClient.del(`session:${sid}`);
   }
 
-  // await Session.deleteOne({
-  //   _id: sid,
-  //   userId: req.user._id // 🔐 prevent cross-user delete
-  // });
-  await redisClient.del(`session:${sid}`)
-  res.clearCookie("sid");
-  res.status(204).end();
+  res.clearCookie("sid", {
+    httpOnly: true,
+    signed: true,
+  });
+
+  return res.sendStatus(204);
+
+} catch (err) {
+  console.log(err);
+  return res.status(500).json({ error: "Logout failed" });
+}
+
 };
 
 export const logoutAll = async (req, res) => {

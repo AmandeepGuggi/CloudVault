@@ -1,6 +1,7 @@
 import { useEffect, useState } from "react";
 import { X, FileText, Copy, Check } from "lucide-react";
 import { BASE_URL, getFileIcon } from "../../utility";
+import { createShareLink, getShareLink, revokeShareLink } from "../../api/shareApi";
 
 export default function ShareFileModal({
   fileId,
@@ -34,47 +35,36 @@ export default function ShareFileModal({
     setEmailInput("");
   };
 
-  const createShareLink = async () => {
+
+
+const handleCreateShareLink = async () => {
   try {
-    setLoading(true)
-    const res = await fetch(
-      `${BASE_URL}/file/share/${fileId}`,
-      {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        credentials: "include",
-        body: JSON.stringify({ permission: linkPermission }),
-      }
-    );
+    setLoading(true);
 
-    if (!res.ok) throw new Error("Failed to create link");
+    const data = await createShareLink(fileId, linkPermission);
 
-    const data = await res.json();
     setShareableLink(data.shareUrl);
     setLinkEnabled(true);
-  } catch (err) {
-    console.error(err);
-  }finally {
+
+  } catch (error) {
+    console.error(error.response?.data?.error || error.message);
+  } finally {
     setLoading(false);
   }
 };
 
-const revokeShareLink = async () => {
-  try {
-    setLoading(true)
-    await fetch(
-      `${BASE_URL}/file/revoke/${fileId}`,
-      {
-        method: "DELETE",
-        credentials: "include",
-      }
-    );
 
+
+const handleRevokeShareLink = async () => {
+  try {
+    setLoading(true);
+    await revokeShareLink(fileId);
     setShareableLink("");
     setLinkEnabled(false);
-  } catch (err) {
-    console.error(err);
-  }finally {
+
+  } catch (error) {
+    console.error(error.response?.data?.error || error.message);
+  } finally {
     setLoading(false);
   }
 };
@@ -92,50 +82,38 @@ const revokeShareLink = async () => {
   const toggleLink = () => {
   
   if (!linkEnabled) {
-    createShareLink();
+    handleCreateShareLink();
   } else {
-    revokeShareLink();
+    handleRevokeShareLink();
   }
 };
 
 useEffect(() => {
-  const getExistingLink = async () => {
-    try {
-      setLoading(true);
+ 
+const handleGetExistingLink = async () => {
+  try {
+    setLoading(true);
 
-      const res = await fetch(
-        `${BASE_URL}/file/share/${fileId}`,
-        {
-          method: "GET",
-          credentials: "include",
-        }
-      );
-
-      // ✅ No link exists (normal case)
-      if (res.status === 204 || res.status === 404) {
-        setLinkEnabled(false);
-        setShareableLink("");
-        return;
-      }
-
-      // ❌ Some real error
-      if (!res.ok) {
-        throw new Error("Failed to fetch share link");
-      }
-
-      // ✅ Link exists
-      const data = await res.json();
-      setLinkEnabled(true);
-      setShareableLink(data.shareUrl);
-
-    } catch (err) {
-      console.error(err);
-    } finally {
-      setLoading(false);
+    const result = await getShareLink(fileId);
+   console.log(result);
+    if (!result.exists) {
+      setLinkEnabled(false);
+      setShareableLink("");
+      return;
     }
-  };
 
-  getExistingLink();
+    setLinkEnabled(true);
+    setShareableLink(result.shareUrl);
+
+  } catch (error) {
+    console.error(error.response?.data?.error || error.message);
+  } finally {
+    setLoading(false);
+  }
+};
+
+handleGetExistingLink()
+
 }, [fileId]);
 
 
@@ -258,7 +236,7 @@ useEffect(() => {
                     )}
                   </button>
                 </div>
-                    <div onClick={revokeShareLink} className="w-full text-center bg-green-700 cursor-pointer text-white rounded-md border px-3 py-2 text-sm">
+                    <div onClick={handleRevokeShareLink} className="w-full text-center bg-green-700 cursor-pointer text-white rounded-md border px-3 py-2 text-sm">
                         Revoke access
                     </div>
               </div>

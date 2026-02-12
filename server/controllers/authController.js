@@ -21,17 +21,23 @@ export const sendRegisterOtp = async (req, res) => {
   const userExists = await User.exists({ email });
   console.log("does user exist", userExists);
   if (userExists) {
-    return res.status(409).json({ error: "User already exists" });
-  }
-  await sendOtpService(email);
+    return res.json({ error: "User already exists" });
+  }else{
+    await sendOtpService(email);
   res.json({ message: `OTP Sent on ${email}` });
+  }
+  
 };
 
 export const verifyOtp = async (req, res) => {
   const { email, otp } = req.body;
-  const otpRecord = await OTP.findOne({ email, otp });
-  if (!otpRecord) {
-    return res.status(400).json({ error: "Invalid or expired OTP" });
+  const otpRecord = await OTP.findOne({ email });
+  if(otpRecord && otpRecord.verified){
+    return res.json({ error: "OTP already used" });
+  }else if(otpRecord && otpRecord.otp !== otp){
+    return res.json({ error: "Invalid OTP" });
+  }else if (!otpRecord) {
+    return res.json({ error: "expired OTP" });
   }
   // otpRecord.deleteOne()
   const updatedOtp = await OTP.updateOne(

@@ -7,7 +7,7 @@ export default async function checkAuthMiddleware(req, res, next) {
 
     if (!sid) {
       res.clearCookie("sid")
-      return res.status(401).json({ error: "Not logged!" });
+      return res.status(401).json({ error: "Not logged in!" });
     }
   
     // const session = await Session.findById(sid)

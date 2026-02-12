@@ -1,7 +1,7 @@
 import React from 'react'
 import Button from '../../components/Button'
 
-const VerifyOtp = ({emailTxt, otpTxt, onOtpChange, isOtpVerifying, otpVerified, otpError, isSending, handleVerifyOtp, navigateToScreen, resendOtp, countdown, handleFinalRegister}) => {
+const VerifyOtp = ({emailTxt, otpTxt, onOtpChange, isOtpVerifying, otpVerified, otpError, isSending, navigateToScreen, resendOtp, countdown, handleFinalRegister}) => {
   return (
     <div className="flex items-center justify-center px-4 py-16">
           {/* Main Content */}
@@ -16,7 +16,7 @@ const VerifyOtp = ({emailTxt, otpTxt, onOtpChange, isOtpVerifying, otpVerified, 
           </p>
 
 
-          <form className="space-y-6" onSubmit={handleVerifyOtp}>
+          <form className="space-y-6" onSubmit={handleFinalRegister}>
             <div>
               <label htmlFor="otp" className="text-sm font-semibold text-gray-700 mb-3 block">
                 Verification Code
@@ -33,11 +33,11 @@ const VerifyOtp = ({emailTxt, otpTxt, onOtpChange, isOtpVerifying, otpVerified, 
              focus:outline-none focus:ring-2 focus:ring-blue-500
              transition no-spinner'/>
 
- {otpError && <span className="text-red-400">{otpError}</span>}
+ {otpError && <span className="text-red-600">{otpError}</span>}
             
             </div>
 
-            <button type='submit' onClick={handleVerifyOtp} 
+            <button type='submit' onClick={handleFinalRegister} 
             className={`${isOtpVerifying ? "bg-blue-300 cursor-not-allowed": "bg-[#0061D5] cursor-pointer hover:bg-[#0052B4]"} ${otpVerified ? "hidden" : ""} transition-colors duration-200 w-full h-12  text-white font-medium rounded-md text-base`}>
               
                {isOtpVerifying
@@ -46,12 +46,7 @@ const VerifyOtp = ({emailTxt, otpTxt, onOtpChange, isOtpVerifying, otpVerified, 
                     ? "Verified"
                     : "Verify OTP"}
             </button>
-            <button type='button' onClick={handleFinalRegister} 
-            className={`${ otpVerified ? " hover:bg-green-600 cursor-pointer bg-green-400": " hidden bg-[#76a3d9] cursor-not-allowed "} w-full h-12 transition-colors duration-200 text-white font-medium rounded-md text-base`}>
-          
-                  Complete Registration
-                  
-            </button>
+            
                
             <div className="text-center space-y-2">
               <p className="text-sm text-gray-600">Didn't receive the code?</p>

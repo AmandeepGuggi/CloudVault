@@ -3,7 +3,9 @@ import { GoogleLogin } from "@react-oauth/google";
 import { GithubIcon } from "../../components/Icons/GithubIcon";
 import { useNavigate } from "react-router-dom";
 import { useState, useEffect } from "react";
-import { loginWithGoogle } from "../../utility";
+// import { loginWithGoogle } from "../../utility";
+import { loginWithGoogle } from "../../api/authApi";
+
 import FloatingInput from "../../components/FloatingInput"
 import { MdEmail } from "react-icons/md"; 
 import { Eye, EyeOff } from "lucide-react";

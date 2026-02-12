@@ -1,31 +1,26 @@
-import React from "react";
-import { FolderOpen, Globe } from "lucide-react";
 import { useNavigate } from "react-router-dom";
 import { useState, useEffect } from "react";
-import {BASE_URL} from "../../utility/index" 
 import RegisterScreen from "./RegisterScreen";
 import VerifyOtp from "./VerifyOtp";
 import { FaCloud } from "react-icons/fa";
+import { sendOtp, sendRegisterOtp, verifyOtp, verifyRegisterOtp } from "../../api/authApi";
 
 
 export default function RegisterPage() {
 
   const navigate = useNavigate();
   const [serverError, setServerError] = useState("");
-    const [isLoading, setIsLoading] = useState(false);
-  const [isSuccess, setIsSuccess] = useState(false);
   const [error, setError] = useState("")
 
  const [formData, setFormData] = useState({
-    fullname: "",
-    email: "",
+    fullname: " Naina Singh",
+    email: "gamerzonly369@gmail.com",
     password: "Abcd@12345",
   });
 
   const [otp, setOtp] = useState("");
   const [otpSent, setOtpSent] = useState(false);
   const [otpVerified, setOtpVerified] = useState(false);
-  const [otpError, setOtpError] = useState("");
   const [isSending, setIsSending] = useState(false);
   const [isVerifying, setIsVerifying] = useState(false);
   const [countdown, setCountdown] = useState(0);
@@ -37,7 +32,7 @@ export default function RegisterPage() {
     }
     if (name === "email") {
       setServerError("");
-      setOtpError("");
+      setError("");
       setOtpSent(false);
       setOtpVerified(false);
       setCountdown(0);
@@ -63,12 +58,8 @@ export default function RegisterPage() {
       setError("Please enter you email")
       return;
     }
-    if( password.length < 8 ){
-      setError("Password length should be greater then 8")
-      return
-    }
     if( password.length <8 ){
-      setError("Minimum assword length should be  8")
+      setError("Minimum password length should be  8")
       return
     }
     if( fullname.length < 3 ){
@@ -78,28 +69,24 @@ export default function RegisterPage() {
 
     try {
       setIsSending(true);
-      const res = await fetch(`${BASE_URL}/otp/send-register-otp`, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ email }),
-      });
+      const res = await sendRegisterOtp(email);
       console.log("1. sending-reg-otp", res);
-      const data = await res.json();
-       if (res.status === 409) {
-    setOtpError("User already exists");
+      // const data = await res.json();
+       if (res.error ) {
+    setError(res.error || "Failed to send OTP.");
     return;
   }
-      if (res.ok) {
+      if (res.message) {
         setOtpSent(true);
         setCountdown(60); // allow resend after 60s
-        setOtpError("");
+        setError("");
         navigateToScreen("verifyOtp")
       } else {
-        setOtpError(data.error || "Failed to send OTP.");
+        setError(data.error || "Failed to send OTP.");
       }
     } catch (err) {
       console.error(err);
-      setOtpError("Something went wrong sending OTP.");
+      setError("Something went wrong sending OTP.");
     } finally {
       setIsSending(false);
     }
@@ -109,121 +96,57 @@ export default function RegisterPage() {
     e.preventDefault();
     const { email } = formData;
     if (!email) {
-      setOtpError("Please enter your email first.");
+      setError("Please enter your email first.");
       return;
     }
 
     try {
       setIsSending(true);
-      const res = await fetch(`${BASE_URL}/otp/send-otp`, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ email }),
-      });
+      setError("")
+      const res = await sendOtp(email);
       const data = await res.json();
 
       if (res.ok) {
         setOtpSent(true);
         setCountdown(60); // allow resend after 60s
-        setOtpError("");
+        setError("");
        
       } else {
-        setOtpError(data.error || "Failed to send OTP.");
+        setError(data.error || "Failed to send OTP.");
       }
     } catch (err) {
       console.error(err);
-      setOtpError("Something went wrong sending OTP.");
+      setError("Something went wrong sending OTP.");
     } finally {
       setIsSending(false);
     }
   };
 
-    // Verify OTP handler
-  const handleVerifyOtp = async (e) => {
-     e.preventDefault();
-    const { email } = formData;
+  const handleFinalRegister = async (e) => {
+    e.preventDefault()
+
     if (!otp) {
-      setOtpError("Please enter OTP.");
+    setError("Please enter OTP.");
+    return;
+  }
+ try{
+  setIsVerifying(true);
+    const res = await verifyRegisterOtp(formData.email, otp, formData.fullname, formData.password);
+    console.log({res});
+    if(res.error){
+      setError(res.error);
       return;
     }
-
-    try {
-      setIsVerifying(true);
-      const res = await fetch(`${BASE_URL}/otp/verify-otp`, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ email, otp }),
-      });
-      const data = await res.json();
-      console.log("2. otp verify response", res, data);
-      if (res.ok) {
-        setOtpVerified(true);
-        setOtpError("");
-        // navigate("/directory")
-      } else {
-        setOtpError(data.error || "Invalid or expired OTP.");
-      }
-    } catch (err) {
-      console.error(err);
-      setOtpError("Something went wrong verifying OTP.");
-    } finally {
-      setIsVerifying(false);
+    if (res.message && res.status === 201) {
+      navigate("/app", { replace: true });
     }
-  };
-
-  const handleFinalRegister = async () => {
-  if (!otpVerified) return;
-    console.log("3. complete regis..", {formData});
-  const res = await fetch(`${BASE_URL}/user/register`, {
-    method: "POST",
-    headers: { "Content-Type": "application/json" },
-    credentials: "include",
-    body: JSON.stringify(formData)
-  });
-
-  if (res.ok) navigate("/app");
+ }catch(err){
+  setError(err.error || "Failed to complete registration.");
+} finally {
+  setIsVerifying(false);
+}
 };
 
- 
-
-  const handleRegisterSubmit =  async (e) => {
-    e.preventDefault()
-    setIsSuccess(false)
-    //  if (!otpVerified) {
-    //   setOtpError("Please verify your email with OTP before registering.");
-    //   return;
-    // }
-      try {
-         setIsVerifying(true);
-      const response = await fetch(`${BASE_URL}/user/register`, {
-        method: "POST",
-        body: JSON.stringify(formData),
-        headers: {
-          "Content-Type": "application/json",
-        },
-        credentials: "include"
-      });
-      const data = await response.json();
-      if(response.status === 201){
-        handleSendOtp(e)
-      }
-      if (!response.ok) {
-  console.log("Server response:", data);
-  setServerError( data.error || data.message || "Registration failed");
-}
-else if(data.status === 201){
-        setIsSuccess(true);
-         setOtpVerified(true);
-        setOtpError("");
-        setTimeout(() => {
-          navigate("/directory");
-        }, 2000);
-      }
-    } catch (error) {
-      console.error("Error:", error);
-      setServerError("Something went wrong. Please try again.");
-    }
-  }
 
   //-----------------------------------------------------//
   //-----------------------------------------------------//
@@ -266,9 +189,7 @@ else if(data.status === 201){
             serverError={serverError}
             error={error}
             setError={setError}
-            // showPassword={showPassword}
-            // setShowPassword={setShowPassword}
-            // isLoading={isLoading}
+            
             />
         );
       case "forgotPassword":
@@ -283,13 +204,12 @@ else if(data.status === 201){
          onOtpChange={(e) => setOtp(e.target.value)}
          isOtpVerifying={isVerifying}
          otpVerified={otpVerified}
-        otpError={otpError}
-        handleVerifyOtp={handleVerifyOtp}
         navigateToScreen={navigateToScreen}
         isSending={isSending}
         resendOtp={resendOtp}
         countdown={countdown}
         handleFinalRegister={handleFinalRegister}
+        otpError={error}
          />
         );
       case "resetPassword":
@@ -323,14 +243,7 @@ else if(data.status === 201){
           </div>
         </div>
       </header>
-   {isLoading && (
-     <div className="fixed inset-0 z-50 bg-black/60 flex items-center justify-center">
-      <div className="flex flex-col items-center gap-4">
-        <div className="w-10 h-10 border-4 border-white border-t-transparent rounded-full animate-spin" />
-        <p className="text-white text-sm font-medium">loading...</p>
-      </div>
-    </div>
-   )}
+ 
 
 
       {/* Main */}

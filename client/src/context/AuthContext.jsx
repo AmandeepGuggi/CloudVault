@@ -1,6 +1,5 @@
-import { createContext, useContext, useEffect, useState } from "react";
-import axios from "axios";
-import { BASE_URL } from "../utility";
+import { createContext, useContext, useState } from "react";
+import { fetchUser, logoutUser } from "../api/userApi";
 
 const AuthContext = createContext(null);
 
@@ -8,26 +7,12 @@ export const AuthProvider = ({ children }) => {
   const [user, setUser] = useState(null);
   const [loading, setLoading] = useState(true);
  
-  // 🔴 CORE: ask backend who you are
-  const getUser = async () => {
-    console.log("requesting user");
+
+ const getUser = async () => {
     try {
-      const res = await fetch(`${BASE_URL}/user/`, {
-        method: "GET",
-        credentials: "include"
-      });
-      if (res.status === 401 || res.status === 403) {
-      setUser(null);
-      return null;
-    }
-      if (!res.ok) {
-      setUser(null);
-    }else{
-      const user = await res.json()
+      const user = await fetchUser();
       setUser(user);
-     
       return user;
-    }
     } catch (err) {
       setUser(null);
       return null;
@@ -35,7 +20,6 @@ export const AuthProvider = ({ children }) => {
       setLoading(false);
     }
   };
-
 
   // 🔁 used AFTER login / refresh / device change
   const refreshUser = async () => {
@@ -45,13 +29,8 @@ export const AuthProvider = ({ children }) => {
 
   const logout = async () => {
     try {
-      await axios.post(
-        `${BASE_URL}/user/logout`,
-        {},
-        { withCredentials: true }
-      );
+      await logoutUser()
     } catch (err) {
-      // ignore
       console.log("error logging out", err);
     } finally {
       setUser(null);

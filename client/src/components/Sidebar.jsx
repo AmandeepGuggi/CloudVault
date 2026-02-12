@@ -10,7 +10,7 @@ import { useAuth } from "../context/AuthContext.jsx";
 import { useEffect, useRef, useState } from "react";
 import { formatBytes } from "../utility";
 export default function Sidebar({ open }) {
- const { user, loading, getUser } = useAuth();
+ const { user } = useAuth();
 
   const [storageUsed, setStorageUsed] = useState(user.storage)
    const storageLimit = 200 * 1024 * 1024; // 500 MB in bytes

@@ -1,11 +1,10 @@
 import React, { useState } from "react";
 import { useLocation, Navigate } from "react-router-dom";
-
 import VerifyOtp from "../Register/VerifyOtp";
 import { useNavigate } from "react-router-dom";
 import LoginScreen from "./LoginScreen";
-import { BASE_URL } from "../../utility";
 import { FaCloud } from "react-icons/fa";
+import { loginUser } from "../../api/userApi";
 
 export default function LoginPage() {
   const navigate = useNavigate();
@@ -14,7 +13,6 @@ const location = useLocation();
 const from = location.state?.from?.pathname || "/app";
 
 const [otp, setOtp] = useState("");
-const [isVerifyingOtp, setIsVerifyingOtp] = useState(false);
 
   const [isSubmitting, setIsSubmitting] = useState(false);
     const [formData, setFormData] = useState({
@@ -24,20 +22,7 @@ const [isVerifyingOtp, setIsVerifyingOtp] = useState(false);
     });
     const [serverError, setServerError] = useState("");
    
-  
-    // const handleChange = (e) => {
-    //   const { name, value } = e.target;
-  
-    //   // Clear the server error as soon as the user starts typing in either field
-    //   if (serverError) {
-    //     setServerError("");
-    //   }
-  
-    //   setFormData((prevFormData) => ({
-    //     ...prevFormData,
-    //     [name]: value,
-    //   }));
-    // };
+ 
 
 
     const handleChange = (e) => {
@@ -54,90 +39,19 @@ const [isVerifyingOtp, setIsVerifyingOtp] = useState(false);
 };
 
 
+
       const handleLoginSubmit = async (e) => {
-         e.preventDefault();
-
+        e.preventDefault();
         try {
-          setIsSubmitting(true)
-          const response = await fetch(`${BASE_URL}/user/login`, {
-            method: "POST",
-            body: JSON.stringify(formData),
-            headers: {
-              "Content-Type": "application/json",
-            },
-            credentials: "include",
-          });
-          
-          const data = await response.json();
-          if (data.error) {
-            setServerError(data.error);
-            setIsSubmitting(false)
-          } 
-
-    // 🚪 NOW navigate
-    navigate(from, { replace: true });
-            
-    
-        } catch (error) {
-          setIsSubmitting(false)
-          console.error("Error:", error);
-          setServerError("Something went wrong. Please try again.");
-        }
-      }
-
-        const handleOtpSubmit = async () => {
-        const res = await fetch(`${BASE_URL}/otp/verify-otp`, {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          credentials: "include",
-          body: JSON.stringify({
-            email: formData.email,
-            otp
-          }),
-        });
-      
-        const data = await res.json();
-      
-        if (res.ok) {
-        //  await refreshUser();
-        //  navigate(from, { replace: true });
-// ✅ ONLY HERE
-        } else {
-          alert("Invalid OTP");
+          setIsSubmitting(true);
+         await loginUser(formData); 
+          navigate(from, { replace: true });
+        } catch (err) {
+          console.error("Login error:", err);
+          setServerError("An error occurred. Please try again.");
+          setIsSubmitting(false);
         }
       };
-
-      const handleVerifyOtp = async () => {
-        try {
-          setIsVerifyingOtp(true);
-      
-          const res = await fetch(`${BASE_URL}/user/login-otp`, {
-            method: "POST",
-            headers: { "Content-Type": "application/json" },
-            credentials: "include",
-            body: JSON.stringify({
-              email: formData.email,
-              otp,
-            }),
-          });
-      
-          const data = await res.json();
-      
-          if (!res.ok) {
-            alert(data.error || "Invalid OTP");
-            return;
-          }
-//       await refreshUser();
-// navigate(from, { replace: true });
-
-      
-        } finally {
-          setIsVerifyingOtp(false);
-        }
-      };
-
-
-
 
    const [currentScreen, setCurrentScreen] = useState("login");
 

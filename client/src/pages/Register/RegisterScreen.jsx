@@ -3,7 +3,7 @@ import React from 'react'
 import { GoogleLogin } from '@react-oauth/google'
 import { GithubIcon } from "../../components/Icons/GithubIcon";
 import { useNavigate } from 'react-router-dom';
-import { loginWithGoogle } from '../../utility';
+// import { loginWithGoogle } from '../../utility';
 import FloatingInput from '../../components/FloatingInput';
 import { MdEmail } from 'react-icons/md';
 import { FiMail } from "react-icons/fi";
@@ -11,6 +11,7 @@ import { FiMail } from "react-icons/fi";
 import { useState } from 'react';
 import { Eye, EyeOff } from "lucide-react";
 import { FaUser } from "react-icons/fa";
+import { loginWithGoogle } from '../../api/authApi';
 
 const RegisterScreen = ({handleSendOtp, handleInputChange, fullnameTxt, emailTxt, passwordTxt, isSending, serverError, error, setError}) => {
   const navigate = useNavigate()

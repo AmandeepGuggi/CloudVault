@@ -21,6 +21,7 @@ export function getUniquename(baseName, existingNames) {
 
   return `${normalized} (${i})`;
 }
+
 export const BASE_URL = "http://localhost:4000"
 
 export  const getFileIcon = (filename) => {
@@ -95,20 +96,7 @@ export  function formatBytes(bytes) {
   else return (bytes / (1024 * 1024)).toFixed(2) + " MB";
 }
 
-export const loginWithGoogle = async (credentials) => {
-   const response = await fetch(`${BASE_URL}/auth/google`, {
-    method: "POST",
-    headers: {
-      "Content-Type": "application/json",
-    },
-    credentials: "include",
-    body: JSON.stringify({ idToken: credentials}),
-  })
-  console.log("res of google", response);
-  const data = await response.json();
-  console.log(data);
-  return data
-}
+
 
 
 

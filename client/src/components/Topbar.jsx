@@ -6,6 +6,8 @@ import { useRef, useEffect, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { BASE_URL } from "../utility";
 import { useAuth } from "../context/AuthContext";
+import { getNotifications, readNotification } from "../api/notificationApi";
+import { logoutUser } from "../api/userApi";
 
 export default function Topbar({
   onToggleSidebar,
@@ -29,19 +31,17 @@ const count = notification.length;
 const hasNotification = count > 0;
 
 const fetchNotifications = async () => {
-  const res = await fetch(`${BASE_URL}/auth/notifications`, {
-    credentials: "include",
-  });
-  const data = await res.json();
+  const data = await getNotifications()
   setNotification(data);
 };
 
 const clearNotifications = async () => {
-  await fetch(`${BASE_URL}/auth/notifications/seen`, {
-    method: "POST",
-    credentials: "include",
-  });
+  try{
+    await readNotification()
   setNotification([]);
+  }catch(err){
+    console.log("error reading notifications",err);
+  }
 };
 
   useEffect(() => {
@@ -81,17 +81,14 @@ setLoggedIn(true)
 
     const handleLogout = async () => {
     try {
-      const response = await fetch(`${BASE_URL}/user/logout`, {
-        method: "POST",
-        credentials: "include",
-      });
-      if (response.ok) {
+      const status = await logoutUser()
+      if (status===204) {
         console.log("Logged out successfully");
         // Optionally reset local state
         setLoggedIn(false);
         setUserName("");
         setUserEmail("");
-        navigate("/login");
+        navigate("/", { replace: true });
         setLoggedIn(false)
       } else {
         console.error("Logout failed");
@@ -229,130 +226,3 @@ setLoggedIn(true)
     </header>
   );
 }
-
-
-// import { FaSearch } from "react-icons/fa";
-// import ProfileMenu from "./ProfileMenu";
-// import { Menu, Settings, Bell } from "lucide-react";
-// import { useRef, useEffect, useState } from "react";
-// import { useNavigate } from "react-router-dom";
-// import { BASE_URL } from "../utility";
-
-// export default function Topbar({
-//   onToggleSidebar,
-//   showProfile,
-//   setShowProfile,
-// }) {
-//   const wrapperRef = useRef(null);
-//   const navigate = useNavigate();
-
-//   const [userName, setUserName] = useState("Guest User");
-//   const [userEmail, setUserEmail] = useState("guest@example.com");
-//   const [profileSrc, setProfileSrc] = useState("");
-
-//   // ---------------- OUTSIDE CLICK ----------------
-//   useEffect(() => {
-//     if (!showProfile) return;
-
-//     function handleOutside(e) {
-//       if (
-//         wrapperRef.current &&
-//         !wrapperRef.current.contains(e.target)
-//       ) {
-//         setShowProfile(false);
-//       }
-//     }
-
-//     document.addEventListener("mousedown", handleOutside);
-//     return () =>
-//       document.removeEventListener("mousedown", handleOutside);
-//   }, [showProfile, setShowProfile]);
-
-//   // ---------------- GET USER ----------------
-//   async function getUser() {
-//     try {
-//       const res = await fetch(`${BASE_URL}/user`, {
-//         credentials: "include",
-//       });
-
-//       if (!res.ok) {
-//         navigate("/login");
-//         return;
-//       }
-
-//       const data = await res.json();
-//       setUserName(data.name);
-//       setUserEmail(data.email);
-//       setProfileSrc(
-//         data.picture ||
-//           "https://encrypted-tbn0.gstatic.com/images?q=tbn:ANd9GcRYfAWbelVtedtn8mYCajf5bYv6PJgyMxOR2g&s"
-//       );
-//     } catch (err) {
-//       console.error(err);
-//     }
-//   }
-
-//   useEffect(() => {
-//     getUser();
-//   }, []);
-
-//   // ---------------- LOGOUT ----------------
-//   const handleLogout = async () => {
-//     try {
-//       await fetch(`${BASE_URL}/user/logout`, {
-//         method: "POST",
-//         credentials: "include",
-//       });
-//       navigate("/login");
-//     } catch (err) {
-//       console.error(err);
-//     } finally {
-//       setShowProfile(false);
-//     }
-//   };
-
-//   return (
-//     <header className="flex items-center justify-between border-b px-4 relative">
-//       {/* Left */}
-//       <button onClick={onToggleSidebar}>
-//         <Menu size={20} />
-//       </button>
-
-//       {/* Right */}
-//       <div className="flex items-center gap-3" ref={wrapperRef}>
-//         <button onClick={() => navigate("/notifications")}>
-//           <Bell size={18} />
-//         </button>
-//         <button onClick={() => navigate("/settings")}>
-//           <Settings size={18} />
-//         </button>
-
-//         {/* Avatar */}
-//         <div
-//           onClick={() => setShowProfile(p => !p)}
-//           className="flex items-center gap-2 cursor-pointer"
-//         >
-//           <img
-//             src={profileSrc}
-//             alt="Profile"
-//             className="w-9 h-9 rounded-full"
-//           />
-//           <div className="hidden md:flex flex-col text-sm">
-//             <span>{userName}</span>
-//             <span className="text-xs text-gray-500">
-//               {userEmail}
-//             </span>
-//           </div>
-//         </div>
-
-//         {showProfile && (
-//           <ProfileMenu
-//             handleLogout={handleLogout}
-//             userName={userName}
-//             userEmail={userEmail}
-//           />
-//         )}
-//       </div>
-//     </header>
-//   );
-// }

@@ -16,6 +16,7 @@ import checkAuth from "./auth/checkUserAuth.js";
 try {
   const app = express();
   const cookieSecret = process.env.COOKIE_SECRET
+  console.log("cookieSecret", cookieSecret);
 app.use(cookieParser(cookieSecret));
 
 app.use(express.json());
@@ -42,7 +43,6 @@ app.use((req, res, next) => {
 app.use("/directory", checkAuthMiddleware, directoryRoutes);
 app.use("/file", checkAuthMiddleware, fileRoutes);
 app.use("/", userRoutes);
-app.use("/otp", authRoutes);
 app.use("/auth", authRoutes);
 
 app.use('/owner',checkAuth , ownerRoutes)

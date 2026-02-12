@@ -7,6 +7,9 @@ import { FaFolder, FaStar, FaHome } from "react-icons/fa";
 import ContextMenu from "../components/ContextMenu.jsx";
 import { useAuth } from "../context/AuthContext.jsx"; 
 import ShareFileModal from "../components/modals/ShareFileModal.jsx";
+import { importFromDrive } from "../api/authApi.js";
+import { createDirectory, getBreadcrumbs, getDirectory, softDeleteDirectory, renameDirectory, toggleDirectoryStar } from "../api/directoryApi.js";
+import { deleteFile, renameFile, softDeleteFile, toggleFileStar } from "../api/fileApi.js";
 
 
 
@@ -98,19 +101,13 @@ const pickerCallback = (data) => {
     mimeType: doc.mimeType,
   }));
 
-  importFromDrive(files);
+  importFileFromDrive(files);
+  
 };
 
-const importFromDrive = async (files) => {
-  const response = await fetch(`${BASE_URL}/file/drive/import`, {
-    method: "POST",
-    headers: {
-      "Content-Type": "application/json",
-    },
-    credentials: "include",
-    body: JSON.stringify({ files, accessToken: driveToken, dirId: dirId ? dirId : "" }),
-  });
-  if(response.ok){
+const importFileFromDrive = async (files) => {
+  const response = await importFromDrive(files, driveToken, dirId);
+  if(response.message){
     getDirectoryItems()
   }
 };
@@ -122,13 +119,10 @@ async function buildBreadcrumbs(currentDirId) {
   const path = [];
   let cursor = currentDirId;
   while (cursor) {
-    const res = await fetch(`${BASE_URL}/directory/${cursor}/breadcrumbs`, {
-      credentials: "include",
-    });
-
-    if (!res.ok) break;
-
-    const data = await res.json();
+    const res = await getBreadcrumbs(cursor)
+    if (res.status!==200 || !res.data) break;
+   
+    const data = res.data
     setBreadcrumbs(data)
 
     path.push({
@@ -197,29 +191,13 @@ const [directoryName, setDirectoryName] = useState("My Files");
 
   //fetch directory items
    async function getDirectoryItems() {
-      setErrorMessage(""); // clear any existing error
+      setErrorMessage(""); 
       if (!user) return;
       try {
-        const response = await fetch(`${BASE_URL}/directory/${dirId || ""}`, {
-          credentials: "include",
-        });
-  
-        if (response.status === 401) {
-          // navigate("/login");
-          setErrorMessage("Not authenticated yet");
-          return;
-        }
-  
-        await handleFetchErrors(response);
-        const data = await response.json();
-  
-        // Set directory name
+        const data = await getDirectory(dirId || "")
         setDirectoryName(dirId ? data.name : "All Files");
-  
-        // Reverse directories and files so new items show on top
         setDirectoriesList([...data.directories].reverse());
-        setFilesList([...data.files].reverse());
-        
+        setFilesList([...data.files]);
       } catch (error) {
         setErrorMessage(error.message);
       }
@@ -270,7 +248,7 @@ const [directoryName, setDirectoryName] = useState("My Files");
         // Build a list of "temp" items
         const newItems = selectedFiles.map((file) => {
           const tempId = `temp-${Date.now()}-${Math.random()}`;
-          console.log(file);
+          
           return {
             file,
             name: file.name,
@@ -385,13 +363,9 @@ const [directoryName, setDirectoryName] = useState("My Files");
       }
 
       async function moveFileToBin(fileId) {
-        console.log("del id", fileId);
+        
   try {
-    await fetch(`${BASE_URL}/file/${fileId}/bin`, {
-      method: "PATCH",
-      credentials: "include",
-    });
-
+    await softDeleteFile(fileId);
     getDirectoryItems();
 
   } catch (err) {
@@ -399,46 +373,27 @@ const [directoryName, setDirectoryName] = useState("My Files");
   }
 }
 
-async function moveFolderToBin(folderId) {
-  try {
-    const res = await fetch(`${BASE_URL}/directory/${folderId}/bin`, {
-      method: "PATCH",
-      credentials: "include",
-    });
-
-    if (!res.ok) {
-      throw new Error("Failed to move folder to bin");
-    }
-
-    // Remove folder from current view immediately (optimistic UI)
-    getDirectoryItems();
-  } catch (err) {
-    console.error("Move folder to bin failed", err);
-  }
-}
-
-/**
-       * Delete a file/directory
-       */
-      async function handleDeleteFile(id) {
+ async function handleDeleteFile(id) {
         setErrorMessage("");
         try {
-          const response = await fetch(`${BASE_URL}/file/${id}`, {
-            method: "DELETE",
-            credentials: "include",
-          });
-          await handleFetchErrors(response);
+          await deleteFile(id);
           getDirectoryItems();
         } catch (error) {
           setErrorMessage(error.message);
         }
       }
     
-  
 
-     /**
-   * Utility: handle fetch errors
-   */
+async function moveFolderToBin(folderId) {
+  try {
+    const res = await softDeleteDirectory(folderId);
+    getDirectoryItems();
+  } catch (err) {
+    console.error("Move folder to bin failed", err);
+  }
+}
+
+
   async function handleFetchErrors(response) {
     if (!response.ok) {
       let errMsg = `Request failed with status ${response.status}`;
@@ -467,17 +422,9 @@ async function moveFolderToBin(folderId) {
   
       setErrorMessage("");
       try {
-        const response = await fetch(`${BASE_URL}/directory/${dirId || ""}`, {
-          method: "POST",
-          headers: {
-            // dirname: newDirname,
-            dirname: finalName,
-          },
-          credentials: "include",
-        });
-        await handleFetchErrors(response);
+        await createDirectory(dirId || "", finalName);
+        
         setNewDirname("New Folder");
-        // setShowCreateDirModal(false);
         setShowCreateFolder(false);
         getDirectoryItems();
       } catch (error) {
@@ -499,23 +446,12 @@ async function moveFolderToBin(folderId) {
       e.preventDefault();
       setErrorMessage("");
       try {
-        const url =
-          renameType === "file"
-            ? `${BASE_URL}/file/${renameId}`
-            : `${BASE_URL}/directory/${renameId}`;
-        const response = await fetch(url, {
-          method: "PATCH",
-          headers: {
-            "Content-Type": "application/json",
-          },
-          body: JSON.stringify(
-            renameType === "file"
-              ? { newFilename: renameValue }
-              : { newDirName: renameValue }
-          ),
-          credentials: "include",
-        });
-        await handleFetchErrors(response);
+        if (renameType === "file") {
+      await renameFile(renameId, renameValue);
+    } else {
+      await renameDirectory(renameId, renameValue);
+    }
+        
   
         setShowRenameModal(false);
         setRenameValue("");
@@ -552,37 +488,6 @@ async function moveFolderToBin(folderId) {
       }
     
     
-      async function handleRenameSubmit(e) {
-        e.preventDefault();
-        setErrorMessage("");
-        try {
-          const url =
-            renameType === "file"
-              ? `${BASE_URL}/file/${renameId}`
-              : `${BASE_URL}/directory/${renameId}`;
-          const response = await fetch(url, {
-            method: "PATCH",
-            headers: {
-              "Content-Type": "application/json",
-            },
-            body: JSON.stringify(
-              renameType === "file"
-                ? { newFilename: renameValue }
-                : { newDirName: renameValue }
-            ),
-            credentials: "include",
-          });
-          await handleFetchErrors(response);
-    
-          setShowRenameModal(false);
-          setRenameValue("");
-          setRenameType(null);
-          setRenameId(null);
-          getDirectoryItems();
-        } catch (error) {
-          setErrorMessage(error.message);
-        }
-      }
   
     useEffect(() => {
       function handleDocumentClick() {
@@ -626,25 +531,22 @@ return 0;
   const folders = sortedItems.filter(item => item.size === undefined);
 const files = sortedItems.filter(item => item.size !== undefined);
 
-  async function toggleStar(id, type) {
-    console.log(id, type);
-  const url =
-    type === true
-      ? `${BASE_URL}/directory/${id}/starred`
-      : `${BASE_URL}/file/${id}/starred`;
 
+async function toggleStar(id, isDirectory) {
   try {
-    const res = await fetch(url, {
-      method: "PATCH",
-      credentials: "include",
-    });
+    if (isDirectory) {
+      await toggleDirectoryStar(id);
+    } else {
+      await toggleFileStar(id);
+    }
 
-    const data = await res.json();
-    console.log({data});
-    getDirectoryItems()
+    await getDirectoryItems();
     setMenuState(null);
-  } catch (err) {
-    console.error("Failed to toggle star", err);
+
+  } catch (error) {
+    console.error(
+      error.response?.data?.error || error.message
+    );
   }
 }
 

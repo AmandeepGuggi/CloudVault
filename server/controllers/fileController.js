@@ -161,7 +161,6 @@ export const createFile = async (req, res, next) => {
 
 export const driveFiles = async (req, res) => {
    const { files, accessToken, dirId } = req.body;
-   console.log(req.body);
   const _id = dirId ? dirId : req.user.rootDirId;
   const parentDirData = await Directory.findOne({ _id });
   if (!parentDirData) {
@@ -183,7 +182,7 @@ export const driveFiles = async (req, res) => {
       await importSingleFile(file, accessToken, userId, parentDirData);
     }
 
-    res.json({ success: true });
+    res.json({ message: "Imported successfully" });
   } catch (err) {
     console.error(err);
     res.status(500).json({ error: "Drive import failed", err });
