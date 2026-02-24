@@ -1,6 +1,6 @@
 import redisClient from "../config/redis.js";
-import Session from "../modals/sessionModal.js";
-import User from "../modals/userModal.js";
+import Session from "../models/sessionModal.js";
+import User from "../models/userModal.js";
 
 export default async function checkAuthMiddleware(req, res, next) {
    const { sid } = req.signedCookies;

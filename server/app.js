@@ -16,7 +16,6 @@ import checkAuth from "./auth/checkUserAuth.js";
 try {
   const app = express();
   const cookieSecret = process.env.COOKIE_SECRET
-  console.log("cookieSecret", cookieSecret);
 app.use(cookieParser(cookieSecret));
 
 app.use(express.json());
@@ -33,10 +32,7 @@ app.use(
     credentials: true,
   })
 );
-app.use((req, res, next) => {
-  console.log("➡️", req.method, req.originalUrl);
-  next();
-});
+
 
 
 

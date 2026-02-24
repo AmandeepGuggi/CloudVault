@@ -1,22 +1,24 @@
 import mongoose from "mongoose"
-import Directory from "../modals/directoryModal.js"
-import User from "../modals/userModal.js"
-import Session from "../modals/sessionModal.js"
-import OTP from "../modals/otpModal.js";
-import Files from "../modals/fileModal.js";
+import Directory from "../models/directoryModal.js"
+import User from "../models/userModal.js"
+import Session from "../models/sessionModal.js"
+import OTP from "../models/otpModal.js";
 import redisClient from "../config/redis.js";
 import { parseDevice } from "../services/parseDevice.js";
+import { loginScehma, registerScehma } from "../validators/authSchema.js";
+import z from "zod";
 
 
-export const verifyOtp = async (req, res) => {
-  const { email, otp } = req.body;
- 
-  console.log("object", updatedOtp);
-  res.json({ msg: "otp verified" });
-};
 
 export const registerUser = async (req, res, next) => {
-  const { fullname, email, password, otp } = req.body
+  const { success, data, error} = registerScehma.safeParse(req.body)
+  if(!success){
+    console.log(error.issues);
+    console.log(z.flattenError(error));
+    return res.status(400).json({ error: error.issues[0].message, message: error.errmsg })
+  }
+
+  const { fullname, email, password, otp } = data
   console.log({ fullname, email, password, otp });
    const otpRecord = await OTP.findOne({ email });
   if(otpRecord && otpRecord.verified){
@@ -112,8 +114,16 @@ export const registerUser = async (req, res, next) => {
 
 }
 
-export const loginUser = async (req, res, next) => {
-  const { email, password, rememberMe } = req.body
+export const loginUser = async (req, res) => {
+   const { success, data, error} = loginScehma.safeParse(req.body)
+  if(!success){
+    console.log(error.issues);
+    console.log(z.flattenError(error));
+    return res.status(400).json({ error: error.issues[0].message, message: error.errmsg })
+  }
+
+  const { email, password, rememberMe  } = data
+  // const { email, password, rememberMe } = req.body
   const foundUser = await User.findOne({ email });
   if (!foundUser) {
       return res.status(401).json({ error: "Invalid credentials" });

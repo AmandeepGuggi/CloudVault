@@ -33,9 +33,12 @@ export const loginWithGoogle = async (idToken) => {
   return data;
 };
 
-export const importFromDrive = async (files, accessToken, dirId) => {
-  const { data } = await axiosWithCreds.post("/file/drive/import", { files, accessToken, dirId });
+export const importFromDrive = async (files, accessToken, dirId, signal) => {
+  const { data } = await axiosWithCreds.post(
+    "/file/drive/import",
+    { files, accessToken, dirId },
+    { signal }
+  );
   console.log(data);
   return data;
 };
-

@@ -46,6 +46,7 @@ const RegisterScreen = ({handleSendOtp, handleInputChange, fullnameTxt, emailTxt
                           onChange={handleInputChange}
                           label="Full name"
                           type="text"
+                          
                           />
             </div>
 

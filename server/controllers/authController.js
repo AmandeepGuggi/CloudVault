@@ -1,10 +1,10 @@
 import mongoose from "mongoose";
-import OTP from "../modals/otpModal.js";
-import User from "../modals/userModal.js";
+import OTP from "../models/otpModal.js";
+import User from "../models/userModal.js";
 import { verifyIdToken } from "../services/googleAuthService.js";
 import { sendOtpService } from "../services/sendOtpService.js";
-import Directory from "../modals/directoryModal.js";
-import Session from "../modals/sessionModal.js";
+import Directory from "../models/directoryModal.js";
+import Session from "../models/sessionModal.js";
 import { getGithubUser } from "../services/githubAuthService.js";
 import { UAParser } from "ua-parser-js";
 import { parseDevice } from "../services/parseDevice.js";

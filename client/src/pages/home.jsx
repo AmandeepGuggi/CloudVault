@@ -12,10 +12,9 @@ import { createDirectory, getBreadcrumbs, getDirectory, softDeleteDirectory, ren
 import { deleteFile, renameFile, softDeleteFile, toggleFileStar } from "../api/fileApi.js";
 
 
-
-
 export default function Home() {
   const [selectedItemId, setSelectedItemId] = useState(null);
+  const [statusMessage, setStatusMessage] = useState({ type: "", text: "" });
 
   const { refreshUser , user} = useAuth();
   const [view, setView] = useState("list"); 
@@ -36,7 +35,12 @@ const [sharefileDetails, setShareFileDetails] = useState({
 
  const clientId = import.meta.env.VITE_DRIVE_CLIENT_ID;
  const apiKey = import.meta.env.VITE_GOOGLE_API_KEY;
- const [driveToken, setDriveToken] = useState("");
+  const [driveToken, setDriveToken] = useState("");
+  const driveTokenRef = useRef("");
+  const driveImportQueueRef = useRef([]);
+  const [driveImportControllers, setDriveImportControllers] = useState({});
+  const [isDriveImporting, setIsDriveImporting] = useState(false);
+  const cancelledDriveImportsRef = useRef(new Set());
 
 
 useEffect(() => {
@@ -63,26 +67,32 @@ useEffect(() => {
 }, []);
 
 const requestDriveToken = () => {
-  const tokenClient = google.accounts.oauth2.initTokenClient({
-    client_id: clientId,
-    scope: "https://www.googleapis.com/auth/drive.readonly",
-    callback: (tokenResponse) => {
-    setDriveToken(tokenResponse.access_token);
-    openPicker(tokenResponse.access_token);
-  }
-  });
+  try {
+    const tokenClient = google.accounts.oauth2.initTokenClient({
+      client_id: clientId,
+      scope: "https://www.googleapis.com/auth/drive.readonly",
+      callback: (tokenResponse) => {
+      setDriveToken(tokenResponse.access_token);
+      driveTokenRef.current = tokenResponse.access_token;
+      openPicker(tokenResponse.access_token);
+    }
+    });
 
-  tokenClient.requestAccessToken();
+    tokenClient.requestAccessToken();
+  } catch {
+    showStatus("error", "Unable to request Google Drive access.");
+  }
 };
 
 const openPicker = (accessToken) => {
   if (!window.google?.picker) {
-    console.error("Google Picker not loaded yet");
+    showStatus("error", "Google Picker is not ready yet.");
     return;
   }
 
   const picker = new window.google.picker.PickerBuilder()
     .addView(window.google.picker.ViewId.DOCS)
+    .enableFeature(window.google.picker.Feature.MULTISELECT_ENABLED)
     .setOAuthToken(accessToken)
     .setDeveloperKey(apiKey)
     .setCallback((pickerCallback))
@@ -101,16 +111,93 @@ const pickerCallback = (data) => {
     mimeType: doc.mimeType,
   }));
 
-  importFileFromDrive(files);
+  startDriveImportQueue(files);
   
 };
 
-const importFileFromDrive = async (files) => {
-  const response = await importFromDrive(files, driveToken, dirId);
-  if(response.message){
-    getDirectoryItems()
+const startDriveImportQueue = (files) => {
+  if (!files?.length) return;
+  if (!driveTokenRef.current && !driveToken) {
+    showStatus("error", "Missing Drive access token.");
+    return;
+  }
+
+  const queuedItems = files.map((file) => ({
+    id: `drive-temp-${Date.now()}-${Math.random()}`,
+    driveFile: file,
+    name: file.name,
+    size: 0,
+    mimeType: file.mimeType,
+    isImporting: true,
+    isDirectory: false,
+  }));
+
+  setFilesList((prev) => [...queuedItems, ...prev]);
+  const nextQueue = [...driveImportQueueRef.current, ...queuedItems];
+  driveImportQueueRef.current = nextQueue;
+
+  if (!isDriveImporting) {
+    setIsDriveImporting(true);
+    processDriveImportQueue(nextQueue);
   }
 };
+
+async function processDriveImportQueue(queue, completed = 0, failed = 0) {
+  if (queue.length === 0) {
+    setIsDriveImporting(false);
+    driveImportQueueRef.current = [];
+    await getDirectoryItems();
+    await refreshUser();
+
+    if (completed > 0 && failed === 0) {
+      showStatus("success", `${completed} file(s) imported from Drive.`);
+    } else if (completed > 0 && failed > 0) {
+      showStatus("error", `${completed} imported, ${failed} failed.`);
+    } else if (failed > 0) {
+      showStatus("error", `${failed} file(s) failed to import.`);
+    }
+    return;
+  }
+
+  const [currentItem, ...restQueue] = queue;
+  if (cancelledDriveImportsRef.current.has(currentItem.id)) {
+    cancelledDriveImportsRef.current.delete(currentItem.id);
+    processDriveImportQueue(restQueue, completed, failed);
+    return;
+  }
+
+  const controller = new AbortController();
+  setDriveImportControllers((prev) => ({ ...prev, [currentItem.id]: controller }));
+
+  try {
+    const response = await importFromDrive(
+      [currentItem.driveFile],
+      driveTokenRef.current || driveToken,
+      dirId,
+      controller.signal
+    );
+
+    setFilesList((prev) => prev.filter((f) => f.id !== currentItem.id));
+    processDriveImportQueue(restQueue, response?.message ? completed + 1 : completed, failed);
+  } catch (error) {
+    setFilesList((prev) => prev.filter((f) => f.id !== currentItem.id));
+    if (error?.name === "CanceledError" || error?.name === "AbortError") {
+      processDriveImportQueue(restQueue, completed, failed + 1);
+      return;
+    }
+    processDriveImportQueue(restQueue, completed, failed + 1);
+  } finally {
+    cancelledDriveImportsRef.current.delete(currentItem.id);
+    setDriveImportControllers((prev) => {
+      const copy = { ...prev };
+      delete copy[currentItem.id];
+      return copy;
+    });
+    driveImportQueueRef.current = driveImportQueueRef.current.filter(
+      (item) => item.id !== currentItem.id
+    );
+  }
+}
 
 
 
@@ -130,10 +217,10 @@ async function buildBreadcrumbs(currentDirId) {
       name: data.name,
     });
 
-    cursor = data.parentId; // climb upward
+    cursor = data.parentId; 
   }
 
-  // Root
+  
   path.push({ id: null, name: "All Files" });
 
   return path.reverse();
@@ -147,8 +234,17 @@ const [directoryName, setDirectoryName] = useState("My Files");
   const [directoriesList, setDirectoriesList] = useState([]);
   const [filesList, setFilesList] = useState([]);
 
-    // Error state
-  const [errorMessage, setErrorMessage] = useState("");
+  function showStatus(type, text) {
+    setStatusMessage({ type, text });
+  }
+
+  useEffect(() => {
+    if (!statusMessage.text) return;
+    const timeout = setTimeout(() => {
+      setStatusMessage({ type: "", text: "" });
+    }, 2500);
+    return () => clearTimeout(timeout);
+  }, [statusMessage]);
 
  //Modal states
   const [showCreateFolder, setShowCreateFolder] = useState(false);
@@ -191,7 +287,6 @@ const [directoryName, setDirectoryName] = useState("My Files");
 
   //fetch directory items
    async function getDirectoryItems() {
-      setErrorMessage(""); 
       if (!user) return;
       try {
         const data = await getDirectory(dirId || "")
@@ -199,7 +294,7 @@ const [directoryName, setDirectoryName] = useState("My Files");
         setDirectoriesList([...data.directories].reverse());
         setFilesList([...data.files]);
       } catch (error) {
-        setErrorMessage(error.message);
+        showStatus("error", error?.message || "Failed to load directory items.");
       }
     }
    useEffect(() => {
@@ -277,14 +372,16 @@ const [directoryName, setDirectoryName] = useState("My Files");
         if (!isUploading) {
           setIsUploading(true);
           // begin the queue process
-          processUploadQueue([...uploadQueue, ...newItems.reverse()]);
+        processUploadQueue([...uploadQueue, ...newItems.reverse()]);
+       
+       
         }
       }
     
       /**
        * Upload items in queue one by one
        */
-    async function processUploadQueue(queue) {
+    async function processUploadQueue(queue, completed = 0, failed = 0) {
         if (queue.length === 0) {
           // No more items to upload
           setIsUploading(false);
@@ -293,6 +390,13 @@ const [directoryName, setDirectoryName] = useState("My Files");
             getDirectoryItems();
            refreshUser()
           }, 1000);
+          if (completed > 0 && failed === 0) {
+            showStatus("success", `${completed} file(s) uploaded successfully.`);
+          } else if (completed > 0 && failed > 0) {
+            showStatus("error", `${completed} uploaded, ${failed} failed.`);
+          } else if (failed > 0) {
+            showStatus("error", `${failed} file(s) failed to upload.`);
+          }
           return;
         }
     
@@ -312,6 +416,8 @@ const [directoryName, setDirectoryName] = useState("My Files");
     
         // xhr.setRequestHeader("filename", currentItem.name );
         xhr.setRequestHeader("X-Filename", encodeURIComponent(currentItem.name));
+        xhr.setRequestHeader("X-Filesize", currentItem.size);
+
 
     
     
@@ -324,8 +430,21 @@ const [directoryName, setDirectoryName] = useState("My Files");
         });
     
         xhr.addEventListener("load", () => {
-          processUploadQueue(restQueue);
+          if (xhr.status >= 200 && xhr.status < 300) {
+            processUploadQueue(restQueue, completed + 1, failed);
+          } else {
+            processUploadQueue(restQueue, completed, failed + 1);
+          }
         });
+
+        xhr.addEventListener("error", () => {
+          processUploadQueue(restQueue, completed, failed + 1);
+        });
+
+        xhr.addEventListener("abort", () => {
+          processUploadQueue(restQueue, completed, failed + 1);
+        });
+
     
         // If user cancels, remove from the queue
         setUploadXhrMap((prev) => ({ ...prev, [currentItem.id]: xhr }));
@@ -360,6 +479,26 @@ const [directoryName, setDirectoryName] = useState("My Files");
           delete copy[tempId];
           return copy;
         });
+        showStatus("error", "Upload cancelled.");
+      }
+
+      function handleCancelDriveImport(tempId) {
+        cancelledDriveImportsRef.current.add(tempId);
+        const controller = driveImportControllers[tempId];
+        if (controller) {
+          controller.abort();
+        }
+
+        driveImportQueueRef.current = driveImportQueueRef.current.filter(
+          (item) => item.id !== tempId
+        );
+        setFilesList((prev) => prev.filter((f) => f.id !== tempId));
+        setDriveImportControllers((prev) => {
+          const copy = { ...prev };
+          delete copy[tempId];
+          return copy;
+        });
+        showStatus("error", "Drive import cancelled.");
       }
 
       async function moveFileToBin(fileId) {
@@ -367,46 +506,35 @@ const [directoryName, setDirectoryName] = useState("My Files");
   try {
     await softDeleteFile(fileId);
     getDirectoryItems();
+    showStatus("success", "File moved to bin.");
 
-  } catch (err) {
-    console.error("Failed to move file to bin", err);
+  } catch {
+    showStatus("error", "Failed to move file to bin.");
   }
 }
 
  async function handleDeleteFile(id) {
-        setErrorMessage("");
         try {
           await deleteFile(id);
           getDirectoryItems();
+          showStatus("success", "File deleted.");
         } catch (error) {
-          setErrorMessage(error.message);
+          showStatus("error", error?.message || "Failed to delete file.");
         }
       }
     
 
 async function moveFolderToBin(folderId) {
   try {
-    const res = await softDeleteDirectory(folderId);
+    await softDeleteDirectory(folderId);
     getDirectoryItems();
-  } catch (err) {
-    console.error("Move folder to bin failed", err);
+    showStatus("success", "Folder moved to bin.");
+  } catch {
+    showStatus("error", "Failed to move folder to bin.");
   }
 }
 
 
-  async function handleFetchErrors(response) {
-    if (!response.ok) {
-      let errMsg = `Request failed with status ${response.status}`;
-      try {
-        const data = await response.json();
-        if (data.error) errMsg = data.error;
-      } catch (_) {
-        // If JSON parsing fails, default errMsg stays
-      }
-      throw new Error(errMsg);
-    }
-    return response;
-  }
 
 
     /**
@@ -420,15 +548,15 @@ async function moveFolderToBin(folderId) {
         ? getUniquename(base, existingNames)
         : base;
   
-      setErrorMessage("");
       try {
         await createDirectory(dirId || "", finalName);
         
         setNewDirname("New Folder");
         setShowCreateFolder(false);
         getDirectoryItems();
+        showStatus("success", "Folder created.");
       } catch (error) {
-        setErrorMessage(error.message);
+        showStatus("error", error?.message || "Failed to create folder.");
       }
     }
   
@@ -444,7 +572,6 @@ async function moveFolderToBin(folderId) {
   
     async function handleRenameSubmit(e) {
       e.preventDefault();
-      setErrorMessage("");
       try {
         if (renameType === "file") {
       await renameFile(renameId, renameValue);
@@ -458,8 +585,9 @@ async function moveFolderToBin(folderId) {
         setRenameType(null);
         setRenameId(null);
         getDirectoryItems();
+        showStatus("success", `${renameType === "file" ? "File" : "Folder"} renamed.`);
       } catch (error) {
-        setErrorMessage(error.message);
+        showStatus("error", error?.message || "Rename failed.");
       }
     }
   
@@ -531,6 +659,17 @@ return 0;
   const folders = sortedItems.filter(item => item.size === undefined);
 const files = sortedItems.filter(item => item.size !== undefined);
 
+const isTempUploadItem = (item) =>
+  !item.isDirectory &&
+  typeof item.id === "string" &&
+  item.id.startsWith("temp-") &&
+  !item.id.startsWith("drive-temp-");
+
+const isTempDriveImportItem = (item) =>
+  !item.isDirectory &&
+  typeof item.id === "string" &&
+  item.id.startsWith("drive-temp-");
+
 
 async function toggleStar(id, isDirectory) {
   try {
@@ -542,11 +681,10 @@ async function toggleStar(id, isDirectory) {
 
     await getDirectoryItems();
     setMenuState(null);
+    showStatus("success", "Star status updated.");
 
   } catch (error) {
-    console.error(
-      error.response?.data?.error || error.message
-    );
+    showStatus("error", error?.response?.data?.error || error?.message || "Failed to update star.");
   }
 }
 
@@ -555,6 +693,17 @@ async function toggleStar(id, isDirectory) {
  
   return (
     <>
+      {statusMessage.text && (
+        <div
+          className={`absolute right-3 top-3 z-[70] rounded-md border px-3 py-2 text-xs shadow-lg ${
+            statusMessage.type === "success"
+              ? "border-green-200 bg-green-50 text-green-800"
+              : "border-red-200 bg-red-50 text-red-800"
+          }`}
+        >
+          {statusMessage.text}
+        </div>
+      )}
         <div className="md:sticky md:-top-7 z-10 bg-[#ffffff] ">
         <div className="flex flex-col md:flex-row md:items-center justify-between py-2 border-b mb-6 border-gray-300">
 
@@ -784,8 +933,8 @@ async function toggleStar(id, isDirectory) {
   {view === "list" && (
   <div className="grid grid-cols-1 gap-4 pb-20 md:pb-2">
     {sortedItems.map((item) => {
-      const isUploadingItem = 
-  !item.isDirectory && item.id.startsWith("temp-");
+      const isUploadingItem = isTempUploadItem(item);
+const isDriveImportItem = isTempDriveImportItem(item);
 const uploadProgress = progressMap[item.id] || 0;
 const icon = getFileIcon(item.name)
 
@@ -798,11 +947,11 @@ const icon = getFileIcon(item.name)
 `}
 
   onClick={() => {
-  if (isUploading) return;
+  if (isUploading || isDriveImporting) return;
   setSelectedItemId(item.id);
 }}
 onDoubleClick={() => {
-  if (isUploading) return;
+  if (isUploading || isDriveImporting) return;
 
   if (item.isDirectory) {
     navigate(`/app/${item.id}`);
@@ -812,7 +961,7 @@ onDoubleClick={() => {
 }}
 
   onContextMenu={(e) => {
-    if (isUploadingItem) return; 
+    if (isUploadingItem || isDriveImportItem) return; 
     e.preventDefault();
     setSelectedItemId(item.id);
     handleContextMenu(e, item.id);
@@ -855,7 +1004,7 @@ onDoubleClick={() => {
       <div className="flex flex-col truncate">
         <p className="text-sm truncate">{item.name}</p>
 
-        {item.size !== undefined && !isUploadingItem && (
+        {item.size !== undefined && !isUploadingItem && !isDriveImportItem && (
           <p className="text-gray-400 text-sm">
             {formatBytes(item.size)}
           </p>
@@ -870,7 +1019,7 @@ onDoubleClick={() => {
         }} className={` ${item.isStarred ? "text-yellow-400" : "text-gray-400  opacity-0 group-hover:opacity-100"} transition-opacity`} />
         
       <MoreVertical onClick={(e) => {
-    if (isUploadingItem) return; 
+    if (isUploadingItem || isDriveImportItem) return; 
     e.preventDefault();
     handleContextMenu(e, item.id);
     setSelectedItemId(item.id);
@@ -904,24 +1053,29 @@ onDoubleClick={() => {
   </div>
 
   {/* Uploading row (INLINE, BELOW NAME) */}
-  {isUploadingItem && (
+  {(isUploadingItem || isDriveImportItem) && (
     <div className="mt-3">
       <div className="flex items-center gap-2">
-        {/* Progress bar */}
-        <div className="flex-1 h-2 bg-gray-200 rounded overflow-hidden">
-          <div
-            className={`h-full transition-all ${
-              uploadProgress === 100 ? "bg-green-600" : "bg-blue-600"
-            }`}
-            style={{ width: `${uploadProgress}%` }}
-          />
-        </div>
+        {isUploadingItem ? (
+          <div className="flex-1 h-2 bg-gray-200 rounded overflow-hidden">
+            <div
+              className={`h-full transition-all ${
+                uploadProgress === 100 ? "bg-green-600" : "bg-blue-600"
+              }`}
+              style={{ width: `${uploadProgress}%` }}
+            />
+          </div>
+        ) : (
+          <div className="flex-1 h-2 bg-gray-200 rounded overflow-hidden">
+            <div className="h-full w-1/2 bg-blue-600 animate-pulse" />
+          </div>
+        )}
 
         {/* Cancel button */}
         <button
           onClick={(e) => {
             e.stopPropagation();
-            handleCancelUpload(item.id);
+            isDriveImportItem ? handleCancelDriveImport(item.id) : handleCancelUpload(item.id);
           }}
           className="text-gray-500 hover:text-red-600 text-sm"
         >
@@ -930,7 +1084,7 @@ onDoubleClick={() => {
       </div>
 
       <p className="text-xs text-gray-500 mt-1">
-        Uploading… {Math.floor(uploadProgress)}%
+        {isDriveImportItem ? "Importing from Drive..." : `Uploading… ${Math.floor(uploadProgress)}%`}
       </p>
     </div>
   )}
@@ -945,8 +1099,8 @@ onDoubleClick={() => {
   <div className="grid grid-cols-2  sm:grid-cols-3 md:grid-cols-3 gap-2">
     {
     folders.map((item) => {
-      const isUploadingItem = 
-  !item.isDirectory && item.id.startsWith("temp-");
+      const isUploadingItem = isTempUploadItem(item);
+const isDriveImportItem = isTempDriveImportItem(item);
 const uploadProgress = progressMap[item.id] || 0;
 
       return (
@@ -956,11 +1110,11 @@ const uploadProgress = progressMap[item.id] || 0;
  className={` my-2
 `}
    onClick={() => {
-  if (isUploading) return;
+  if (isUploading || isDriveImporting) return;
   setSelectedItemId(item.id);
 }}
 onDoubleClick={() => {
-  if (isUploading) return;
+  if (isUploading || isDriveImporting) return;
 
   if (item.isDirectory) {
     navigate(`/app/${item.id}`);
@@ -969,7 +1123,7 @@ onDoubleClick={() => {
   }
 }}
   onContextMenu={(e) => {
-    if (isUploadingItem) return; 
+    if (isUploadingItem || isDriveImportItem) return; 
     e.preventDefault();
     setSelectedItemId(item.id);
     handleContextMenu(e, item.id);
@@ -1019,7 +1173,7 @@ onDoubleClick={() => {
         toggleStar(item.id, item.isDirectory)
         }} className={` ${item.isStarred ? "text-yellow-400" : "text-gray-400  opacity-0 group-hover:opacity-100"} transition-opacity`}  />
       <MoreVertical onClick={(e) => {
-    if (isUploadingItem) return; 
+    if (isUploadingItem || isDriveImportItem) return; 
     e.preventDefault();
     handleContextMenu(e, item.id);
     setSelectedItemId(item.id);
@@ -1056,24 +1210,29 @@ onDoubleClick={() => {
 
 
   {/* Uploading row (INLINE, BELOW NAME) */}
-  {isUploadingItem && (
+  {(isUploadingItem || isDriveImportItem) && (
     <div className="mt-3">
       <div className="flex items-center gap-2">
-        {/* Progress bar */}
-        <div className="flex-1 h-2 bg-gray-200 rounded overflow-hidden">
-          <div
-            className={`h-full transition-all ${
-              uploadProgress === 100 ? "bg-green-600" : "bg-blue-600"
-            }`}
-            style={{ width: `${uploadProgress}%` }}
-          />
-        </div>
+        {isUploadingItem ? (
+          <div className="flex-1 h-2 bg-gray-200 rounded overflow-hidden">
+            <div
+              className={`h-full transition-all ${
+                uploadProgress === 100 ? "bg-green-600" : "bg-blue-600"
+              }`}
+              style={{ width: `${uploadProgress}%` }}
+            />
+          </div>
+        ) : (
+          <div className="flex-1 h-2 bg-gray-200 rounded overflow-hidden">
+            <div className="h-full w-1/2 bg-blue-600 animate-pulse" />
+          </div>
+        )}
 
         {/* Cancel button */}
         <button
           onClick={(e) => {
             e.stopPropagation();
-            handleCancelUpload(item.id);
+            isDriveImportItem ? handleCancelDriveImport(item.id) : handleCancelUpload(item.id);
           }}
           className="text-gray-500 hover:text-red-600 text-sm"
         >
@@ -1082,7 +1241,7 @@ onDoubleClick={() => {
       </div>
 
       <p className="text-xs text-gray-500 mt-1">
-        Uploading… {Math.floor(uploadProgress)}%
+        {isDriveImportItem ? "Importing from Drive..." : `Uploading… ${Math.floor(uploadProgress)}%`}
       </p>
     </div>
   )}
@@ -1098,8 +1257,8 @@ onDoubleClick={() => {
 {view === "grid" && (
   <div className="grid grid-cols-2 pb-20 md:pb-2 sm:grid-cols-3 md:grid-cols-3 gap-2">
     {files.filter(item => item.size !== undefined).map((item) => {
-      const isUploadingItem = 
-  !item.isDirectory && item.id.startsWith("temp-");
+      const isUploadingItem = isTempUploadItem(item);
+const isDriveImportItem = isTempDriveImportItem(item);
 const uploadProgress = progressMap[item.id] || 0;
 const icon = getFileIcon(item.name);
 
@@ -1107,12 +1266,25 @@ const icon = getFileIcon(item.name);
     <div
   key={item.id}
 
-  onClick={() =>
-    !(activeContextMenu || isUploading) &&
-    handleRowClick(item.isDirectory ? "directory" : "file", item.id)
+  // onClick={() =>
+  //   !(activeContextMenu || isUploading) &&
+  //   handleRowClick(item.isDirectory ? "directory" : "file", item.id)
+  // }
+   onClick={() => {
+  if (isUploading || isDriveImporting) return;
+  setSelectedItemId(item.id);
+}}
+onDoubleClick={() => {
+  if (isUploading || isDriveImporting) return;
+
+  if (item.isDirectory) {
+    navigate(`/app/${item.id}`);
+  } else {
+    window.open(`${BASE_URL}/file/${item.id}`, "_blank");
   }
+}}
   onContextMenu={(e) => {
-    if (isUploadingItem) return; 
+    if (isUploadingItem || isDriveImportItem) return; 
     e.preventDefault();
     setSelectedItemId(item.id);
     handleContextMenu(e, item.id);
@@ -1142,13 +1314,17 @@ const icon = getFileIcon(item.name);
     type: "folder",
   });
   }}
+  
 >
   {/* Top row */}
   <div>
     
       {item.size !== undefined ? (
-        <div  > 
-         <div   className="border group border-gray-300 rounded-lg px-4 py-1 cursor-pointer hover:bg-gray-50">
+        <div> 
+         <div  className={`border rounded-lg px-4 py-1 cursor-pointer group
+  ${selectedItemId === item.id ? "bg-blue-50 border-blue-400" : "hover:bg-gray-50"}
+`} 
+>
        <div className="flex flex-col w-full">
           <div className="flex justify-between w-full">
            <div className="flex items-center gap-2 min-w-0"> 
@@ -1164,7 +1340,7 @@ const icon = getFileIcon(item.name);
         toggleStar(item.id, item.isDirectory)
         }} className={` ${item.isStarred ? "text-yellow-400" : "text-gray-400  opacity-0 group-hover:opacity-100"} transition-opacity`}  />
       <MoreVertical onClick={(e) => {
-    if (isUploadingItem) return; 
+    if (isUploadingItem || isDriveImportItem) return; 
     e.preventDefault();
     handleContextMenu(e, item.id);
     const menuWidth = 180;
@@ -1219,24 +1395,29 @@ const icon = getFileIcon(item.name);
   </div>
 
   {/* Uploading row (INLINE, BELOW NAME) */}
-  {isUploadingItem && (
+  {(isUploadingItem || isDriveImportItem) && (
     <div className="mt-3">
       <div className="flex items-center gap-2">
-        {/* Progress bar */}
-        <div className="flex-1 h-2 bg-gray-200 rounded overflow-hidden">
-          <div
-            className={`h-full transition-all ${
-              uploadProgress === 100 ? "bg-green-600" : "bg-blue-600"
-            }`}
-            style={{ width: `${uploadProgress}%` }}
-          />
-        </div>
+        {isUploadingItem ? (
+          <div className="flex-1 h-2 bg-gray-200 rounded overflow-hidden">
+            <div
+              className={`h-full transition-all ${
+                uploadProgress === 100 ? "bg-green-600" : "bg-blue-600"
+              }`}
+              style={{ width: `${uploadProgress}%` }}
+            />
+          </div>
+        ) : (
+          <div className="flex-1 h-2 bg-gray-200 rounded overflow-hidden">
+            <div className="h-full w-1/2 bg-blue-600 animate-pulse" />
+          </div>
+        )}
 
         {/* Cancel button */}
         <button
           onClick={(e) => {
             e.stopPropagation();
-            handleCancelUpload(item.id);
+            isDriveImportItem ? handleCancelDriveImport(item.id) : handleCancelUpload(item.id);
           }}
           className="text-gray-500 hover:text-red-600 text-sm"
         >
@@ -1245,7 +1426,7 @@ const icon = getFileIcon(item.name);
       </div>
 
       <p className="text-xs text-gray-500 mt-1">
-        Uploading… {Math.floor(uploadProgress)}%
+        {isDriveImportItem ? "Importing from Drive..." : `Uploading… ${Math.floor(uploadProgress)}%`}
       </p>
     </div>
   )}
@@ -1269,7 +1450,7 @@ const icon = getFileIcon(item.name);
           handleDeleteDirectory={moveFolderToBin}
           handleDeleteFile={handleDeleteFile}
           handleCancelUpload={handleCancelUpload}
-          isUploadingItem={selectedItem.id.startsWith("temp-")}
+          isUploadingItem={isTempUploadItem(selectedItem) || isTempDriveImportItem(selectedItem)}
           handleRenameSubmit={handleRenameSubmit}
           openRenameModal={openRenameModal}
           toggleStar={toggleStar}
@@ -1336,5 +1517,3 @@ const icon = getFileIcon(item.name);
     </button>
   );
 }
-
-

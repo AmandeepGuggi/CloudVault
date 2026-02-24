@@ -2,16 +2,16 @@ import { rm } from "fs/promises";
 import path from "path";
 import fs from "fs";
 import { createWriteStream, readFile } from "fs";
-import Directory from "../modals/directoryModal.js";
+import Directory from "../models/directoryModal.js";
 import { fileTypeFromFile } from "file-type";
-import Files from "../modals/fileModal.js";
+import Files from "../models/fileModal.js";
 import mongoose from "mongoose";
 import sharp from 'sharp'
 import { execFile } from "child_process";
 import { promisify } from "util";
-import User from "../modals/userModal.js";
+import User from "../models/userModal.js";
 import { pipeline } from "stream/promises";
-import ShareLink from "../modals/ShareLink.js";
+import ShareLink from "../models/ShareLink.js";
 
 const execFileAsync = promisify(execFile);
 
@@ -27,6 +27,15 @@ export const createFile = async (req, res, next) => {
 
   // const filename = req.headers.filename || "untitled";
   const filename = decodeURIComponent(req.headers["x-filename"]) || "untitled";
+const fileSize = parseInt(req.headers["x-filesize"], 10);
+
+if (!fileSize || fileSize > 5 * 1024 * 1024) {
+  req.destroy();   // kill stream immediately
+  return res.status(400).json({
+    error: "File size cannot be more than 5MB"
+  });
+}
+
   const extension = path.extname(filename);
 
   let bytesWritten = 0;
@@ -47,7 +56,16 @@ export const createFile = async (req, res, next) => {
     // 🔑 COUNT BYTES AS THEY FLOW
     req.on("data", chunk => {
       bytesWritten += chunk.length;
+       if (bytesWritten > 5 * 1024 * 1024 ) {
+        console.log("bytes exceeding",);
+
+    writeStream.destroy();
+    req.destroy();
+  }
     });
+    req.on("aborted", () => {
+  console.log("Upload aborted");
+});
     
     req.pipe(writeStream);
     

@@ -1,7 +1,7 @@
-import Directory from "../modals/directoryModal.js";
-import Files from "../modals/fileModal.js"
-import Session from "../modals/sessionModal.js"
-import User from "../modals/userModal.js"
+import Directory from "../models/directoryModal.js";
+import Files from "../models/fileModal.js"
+import Session from "../models/sessionModal.js"
+import User from "../models/userModal.js"
 import { rm } from "fs/promises";
 import path from "path";
 import mongoose from "mongoose";

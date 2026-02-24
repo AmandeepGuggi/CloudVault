@@ -51,9 +51,10 @@ const router = createBrowserRouter([
     </ProtectedRoute>,
     children: [
         { index: true, element: <Home /> },
-        { path: ":dirId?", element: <Home /> },
         { path: "starred", element: <Starred /> },
+        { path: "shared", element: <Home /> },
         { path: "bin", element: <Bin /> },
+        { path: ":dirId?", element: <Home /> },
         
        
       ],

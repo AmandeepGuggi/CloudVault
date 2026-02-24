@@ -17,6 +17,7 @@ export default function FloatingInput({ name, value, onChange, label, type = "te
       value={value}
       onChange={onChange}
         type={type}
+        min={3}
         onFocus={() => setFocus(true)}
         onBlur={(e) => e.target.value === "" && setFocus(false)}
         className="w-full border-b-[1.5px] border-gray-300 focus:border-black outline-none py-3 text-gray-800 pr-8"

@@ -141,7 +141,8 @@ export default function RegisterPage() {
       navigate("/app", { replace: true });
     }
  }catch(err){
-  setError(err.error || "Failed to complete registration.");
+  console.log(err);
+  setError(err.response.data.error || "Failed to complete registration.");
 } finally {
   setIsVerifying(false);
 }

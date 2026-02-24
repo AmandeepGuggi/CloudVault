@@ -1,5 +1,5 @@
 import nodemailer from "nodemailer"
-import OTP from "../modals/otpModal.js";
+import OTP from "../models/otpModal.js";
 
 
 const AppKey = process.env.APP_KEY

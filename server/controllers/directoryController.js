@@ -1,5 +1,5 @@
-import Directory from "../modals/directoryModal.js"
-import Files from "../modals/fileModal.js";
+import Directory from "../models/directoryModal.js"
+import Files from "../models/fileModal.js";
 import { rm, writeFile } from "fs/promises";
 import mongoose from "mongoose";
 
@@ -7,6 +7,11 @@ import mongoose from "mongoose";
 export const getDirectorybyId = async (req, res) => {
   const user = req.user;
   const id = req.params.id || user.rootDirId.toString()
+
+  if (req.params.id && !mongoose.Types.ObjectId.isValid(req.params.id)) {
+    return res.status(400).json({ error: "Invalid directory id" });
+  }
+
   const doesExist = await Directory.exists({_id: id})
 if (!doesExist) {
     return res.status(404).json({ error: "Directory not found or you do not have access to it!" });
@@ -45,7 +50,7 @@ export const renameDirectory = async (req, res, next) => {
   const user = req.user;
   const { id } = req.params;
   const { newDirName } = req.body;
-
+  
   try {
     await Directory.findOneAndUpdate({_id: id, userId: user._id },{$set:  { name: newDirName }})
     res.status(200).json({ message: "Directory Renamed!" });
@@ -183,6 +188,10 @@ export const getBinFolders = async (req, res) => {
 export async function getDirectoryBreadcrumbs(req, res) {
   const { id } = req.params;
   const userId = req.user._id;
+
+  if (!mongoose.Types.ObjectId.isValid(id)) {
+    return res.status(400).json({ error: "Invalid directory id" });
+  }
 
   const breadcrumbs = [];
   let currentId = id;
