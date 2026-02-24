@@ -12,7 +12,7 @@ A **Google Drive–style file manager UI** built using **React** and **Tailwind 
 - 📂 Upload files from google drive
 - 📤 File upload, rename, delete
 - 📁 Folder structure
-- ⭐ Starred files
+- ⭐ Bulk delete, download operations
 - 🗑️ Recycle bin system
 - Redis based session management
 
@@ -28,7 +28,9 @@ A **Google Drive–style file manager UI** built using **React** and **Tailwind 
 ![Preview](client/src/assets/preview.png)
 
 ### Mobile
-![Mobile](client/src/assets/mobile.png)
+<p align="center">
+  <img src="client/src/assets/mobile.png" width="250"/>
+</p>
 
 ### Settings
 ![Setting](client/src/assets/settings.png)
