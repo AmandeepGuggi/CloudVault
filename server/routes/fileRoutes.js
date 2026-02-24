@@ -1,5 +1,5 @@
 import express from "express";
-import { createFile, createShareLink, deleteFilePermanently, deleteLink, driveFiles, getBinFiles, getExistingLink, getSharedFile, getStarredFiles, moveFileToBin, readFiles, restoreFile, toggleFileStar, updateFile } from "../controllers/fileController.js"
+import { bulkDeleteForeverFromBin, bulkDownloadLinks, bulkDownloadZip, bulkMoveToBin, bulkRestoreFromBin, createFile, createShareLink, deleteFilePermanently, deleteLink, driveFiles, getBinFiles, getExistingLink, getSharedFile, getStarredFiles, moveFileToBin, readFiles, restoreFile, toggleFileStar, updateFile } from "../controllers/fileController.js"
 
 
 const router = express.Router();
@@ -10,6 +10,11 @@ router.post("/:parentDirId", createFile);
 router.post("/", createFile);
 
 router.post("/drive/import", driveFiles)
+router.post("/bulk/bin", bulkMoveToBin);
+router.post("/bulk/download-links", bulkDownloadLinks);
+router.post("/bulk/download-zip", bulkDownloadZip);
+router.post("/bulk/restore", bulkRestoreFromBin);
+router.post("/bulk/permanently-delete", bulkDeleteForeverFromBin);
 
 // READ
 router.get('/starred', getStarredFiles );

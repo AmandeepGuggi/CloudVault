@@ -23,6 +23,8 @@ export default function ContextMenu({
   menuRef,
   position,
   onClose,
+  isMultiSelectMode,
+  onToggleMultiSelectMode,
   setShowShareModal,
   shareFileDetails
 }) {
@@ -51,7 +53,10 @@ export default function ContextMenu({
       >
         <div
           className={`flex w-full items-center gap-3 px-4 py-2 text-sm hover:bg-gray-100  `}
-          onClick={() => openRenameModal("directory", item.id, item.name)}
+          onClick={() => {
+            onClose();
+            openRenameModal("directory", item.id, item.name);
+          }}
         >
           <MdDriveFileRenameOutline className="h-5 w-5" /> Rename
         </div>
@@ -68,6 +73,16 @@ export default function ContextMenu({
         >
           <MdDeleteOutline className="h-5 w-5" />
           <span>Move to bin</span>
+        </div>
+        <div
+          className="flex w-full items-center gap-3 px-4 py-2 text-sm hover:bg-gray-100"
+          onClick={() => {
+            onClose();
+            onToggleMultiSelectMode();
+          }}
+        >
+          <span className="inline-block w-5 text-center">#</span>
+          {isMultiSelectMode ? "Done selecting" : "Select multiple"}
         </div>
       </div>
     );
@@ -107,7 +122,10 @@ export default function ContextMenu({
           }}
           className="z-50 w-40 cursor-pointer rounded-lg bg-white shadow-lg"
         >
-          <div onClick={()=> handleRowClick("file", item.id)} className="flex w-full items-center gap-3 px-4 py-2 text-sm hover:bg-gray-100">
+          <div onClick={() => {
+            onClose();
+            handleRowClick("file", item.id);
+          }} className="flex w-full items-center gap-3 px-4 py-2 text-sm hover:bg-gray-100">
             <MdOpenInNew className="h-5 w-5" />
             
             Open
@@ -115,16 +133,20 @@ export default function ContextMenu({
 
           <div
             className={`flex w-full items-center gap-3 px-4 py-2 text-sm hover:bg-gray-100  `}
-            onClick={() =>
-              (window.location.href = `${BASE_URL}/file/${item.id}?action=download`)
-            }
+            onClick={() => {
+              onClose();
+              window.location.href = `${BASE_URL}/file/${item.id}?action=download`;
+            }}
           >
             <MdDownload className="h-5 w-5" />
             Download
           </div>
           <div
             className={`flex w-full items-center gap-3 px-4 py-2 text-sm hover:bg-gray-100  `}
-            onClick={() => openRenameModal("file", item.id, item.name)}
+            onClick={() => {
+              onClose();
+              openRenameModal("file", item.id, item.name);
+            }}
           >
             <MdDriveFileRenameOutline className="h-5 w-5" />
             Rename
@@ -158,6 +180,16 @@ export default function ContextMenu({
           >
             <MdDeleteOutline className="h-5 w-5" />
             Move to bin
+          </div>
+          <div
+            className="flex w-full items-center gap-3 px-4 py-2 text-sm hover:bg-gray-100"
+            onClick={() => {
+              onClose();
+              onToggleMultiSelectMode();
+            }}
+          >
+            <span className="inline-block w-5 text-center">#</span>
+            {isMultiSelectMode ? "Done selecting" : "Select multiple"}
           </div>
         </div>
       );

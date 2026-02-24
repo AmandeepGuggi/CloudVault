@@ -1,4 +1,4 @@
-import { rm } from "fs/promises";
+import { rm, mkdtemp, mkdir, copyFile } from "fs/promises";
 import path from "path";
 import fs from "fs";
 import { createWriteStream, readFile } from "fs";
@@ -12,8 +12,103 @@ import { promisify } from "util";
 import User from "../models/userModal.js";
 import { pipeline } from "stream/promises";
 import ShareLink from "../models/ShareLink.js";
+import os from "os";
 
 const execFileAsync = promisify(execFile);
+
+const sanitizeFilename = (name = "file") =>
+  name.replace(/[<>:"/\\|?*\x00-\x1F]/g, "_").trim() || "file";
+
+async function collectNestedDirectoryIds(rootDirectoryIds, userId) {
+  const allIds = new Set(rootDirectoryIds.map((id) => id.toString()));
+  let frontier = [...rootDirectoryIds];
+
+  while (frontier.length > 0) {
+    const children = await Directory.find({
+      userId,
+      isDeleted: false,
+      parentDirId: { $in: frontier },
+    }).select("_id").lean();
+
+    const nextFrontier = [];
+    for (const child of children) {
+      const id = child._id.toString();
+      if (!allIds.has(id)) {
+        allIds.add(id);
+        nextFrontier.push(child._id);
+      }
+    }
+
+    frontier = nextFrontier;
+  }
+
+  return [...allIds].map((id) => new mongoose.Types.ObjectId(id));
+}
+
+async function collectFilesForSelection({ userId, fileIds = [], directoryIds = [] }) {
+  const validFileIds = fileIds.filter((id) => mongoose.Types.ObjectId.isValid(id));
+  const validDirIds = directoryIds.filter((id) => mongoose.Types.ObjectId.isValid(id));
+
+  const fileObjectIds = validFileIds.map((id) => new mongoose.Types.ObjectId(id));
+  const dirObjectIds = validDirIds.map((id) => new mongoose.Types.ObjectId(id));
+
+  let nestedDirIds = [];
+  if (dirObjectIds.length) {
+    const ownedRoots = await Directory.find({
+      _id: { $in: dirObjectIds },
+      userId,
+      isDeleted: false,
+    }).select("_id").lean();
+
+    nestedDirIds = await collectNestedDirectoryIds(
+      ownedRoots.map((d) => d._id),
+      userId
+    );
+  }
+
+  const query = {
+    userId,
+    isDeleted: false,
+    $or: [],
+  };
+
+  if (fileObjectIds.length) {
+    query.$or.push({ _id: { $in: fileObjectIds } });
+  }
+  if (nestedDirIds.length) {
+    query.$or.push({ parentDirId: { $in: nestedDirIds } });
+  }
+
+  if (query.$or.length === 0) return [];
+
+  return Files.find(query)
+    .select("_id name extension parentDirId")
+    .lean();
+}
+
+async function collectDirectoryTreeIds(rootIds, userId) {
+  const allIds = new Set(rootIds.map((id) => id.toString()));
+  let frontier = [...rootIds];
+
+  while (frontier.length > 0) {
+    const children = await Directory.find({
+      userId,
+      parentDirId: { $in: frontier },
+    }).select("_id").lean();
+
+    const next = [];
+    for (const child of children) {
+      const id = child._id.toString();
+      if (!allIds.has(id)) {
+        allIds.add(id);
+        next.push(child._id);
+      }
+    }
+    frontier = next;
+  }
+
+  return [...allIds].map((id) => new mongoose.Types.ObjectId(id));
+}
 
 
 
@@ -206,6 +301,226 @@ export const driveFiles = async (req, res) => {
     res.status(500).json({ error: "Drive import failed", err });
   }
 }
+
+export const bulkMoveToBin = async (req, res) => {
+  const userId = req.user._id;
+  const { fileIds = [], directoryIds = [] } = req.body || {};
+  const now = new Date();
+
+  const validFileIds = fileIds.filter((id) => mongoose.Types.ObjectId.isValid(id));
+  const validDirIds = directoryIds.filter((id) => mongoose.Types.ObjectId.isValid(id));
+
+  const fileObjectIds = validFileIds.map((id) => new mongoose.Types.ObjectId(id));
+  const dirObjectIds = validDirIds.map((id) => new mongoose.Types.ObjectId(id));
+
+  const [fileUpdate, dirUpdate] = await Promise.all([
+    fileObjectIds.length
+      ? Files.updateMany(
+          { _id: { $in: fileObjectIds }, userId, isDeleted: false },
+          { $set: { isDeleted: true, deletedAt: now } }
+        )
+      : Promise.resolve({ modifiedCount: 0 }),
+    dirObjectIds.length
+      ? Directory.updateMany(
+          { _id: { $in: dirObjectIds }, userId, isDeleted: false },
+          { $set: { isDeleted: true, deletedAt: now } }
+        )
+      : Promise.resolve({ modifiedCount: 0 }),
+  ]);
+
+  return res.json({
+    message: "Bulk move to bin completed",
+    filesMoved: fileUpdate.modifiedCount || 0,
+    foldersMoved: dirUpdate.modifiedCount || 0,
+  });
+};
+
+export const bulkDownloadLinks = async (req, res) => {
+  const userId = req.user._id;
+  const { fileIds = [], directoryIds = [] } = req.body || {};
+
+  const selectedFiles = await collectFilesForSelection({ userId, fileIds, directoryIds });
+  if (!selectedFiles.length) {
+    return res.status(404).json({ error: "No downloadable files found." });
+  }
+
+  const baseUrl = `${req.protocol}://${req.get("host")}`;
+  const links = selectedFiles.map((file) => ({
+    id: file._id.toString(),
+    name: file.name,
+    url: `${baseUrl}/file/${file._id.toString()}?action=download`,
+  }));
+
+  return res.json({ links, count: links.length });
+};
+
+export const bulkDownloadZip = async (req, res) => {
+  const userId = req.user._id;
+  const { fileIds = [], directoryIds = [] } = req.body || {};
+
+  const selectedFiles = await collectFilesForSelection({ userId, fileIds, directoryIds });
+  if (!selectedFiles.length) {
+    return res.status(404).json({ error: "No downloadable files found." });
+  }
+
+  const tmpRoot = await mkdtemp(path.join(os.tmpdir(), "cloudvault-zip-"));
+  const stagingDir = path.join(tmpRoot, "files");
+  const zipPath = path.join(tmpRoot, "download.zip");
+
+  try {
+    await mkdir(stagingDir, { recursive: true });
+
+    const usedNames = new Set();
+    for (const file of selectedFiles) {
+      const src = path.join(process.cwd(), "storage", `${file._id.toString()}${file.extension}`);
+      if (!fs.existsSync(src)) continue;
+
+      const ext = path.extname(file.name || "") || file.extension || "";
+      const baseName = sanitizeFilename(path.basename(file.name || `file-${file._id.toString()}`, ext));
+      let candidate = `${baseName}${ext}`;
+      let counter = 1;
+      while (usedNames.has(candidate)) {
+        candidate = `${baseName} (${counter})${ext}`;
+        counter += 1;
+      }
+      usedNames.add(candidate);
+
+      const dest = path.join(stagingDir, candidate);
+      await copyFile(src, dest);
+    }
+
+    await execFileAsync("zip", ["-rq", zipPath, "."], { cwd: stagingDir });
+
+    return res.download(zipPath, `cloudvault-download-${Date.now()}.zip`, async () => {
+      await rm(tmpRoot, { recursive: true, force: true });
+    });
+  } catch (error) {
+    await rm(tmpRoot, { recursive: true, force: true });
+    return res.status(500).json({
+      error: "Failed to create zip download",
+      details: error?.message || "Unknown error",
+    });
+  }
+};
+
+export const bulkRestoreFromBin = async (req, res) => {
+  const userId = req.user._id;
+  const { fileIds = [], directoryIds = [] } = req.body || {};
+
+  const validFileIds = fileIds.filter((id) => mongoose.Types.ObjectId.isValid(id));
+  const validDirIds = directoryIds.filter((id) => mongoose.Types.ObjectId.isValid(id));
+
+  const fileObjectIds = validFileIds.map((id) => new mongoose.Types.ObjectId(id));
+  const dirObjectIds = validDirIds.map((id) => new mongoose.Types.ObjectId(id));
+
+  const [fileUpdate, dirUpdate] = await Promise.all([
+    fileObjectIds.length
+      ? Files.updateMany(
+          { _id: { $in: fileObjectIds }, userId, isDeleted: true },
+          { $set: { isDeleted: false, deletedAt: null } }
+        )
+      : Promise.resolve({ modifiedCount: 0 }),
+    dirObjectIds.length
+      ? Directory.updateMany(
+          { _id: { $in: dirObjectIds }, userId, isDeleted: true },
+          { $set: { isDeleted: false, deletedAt: null } }
+        )
+      : Promise.resolve({ modifiedCount: 0 }),
+  ]);
+
+  return res.json({
+    message: "Bulk restore completed",
+    filesRestored: fileUpdate.modifiedCount || 0,
+    foldersRestored: dirUpdate.modifiedCount || 0,
+  });
+};
+
+export const bulkDeleteForeverFromBin = async (req, res) => {
+  const userId = req.user._id;
+  const { fileIds = [], directoryIds = [] } = req.body || {};
+
+  const validFileIds = fileIds.filter((id) => mongoose.Types.ObjectId.isValid(id));
+  const validDirIds = directoryIds.filter((id) => mongoose.Types.ObjectId.isValid(id));
+
+  const fileObjectIds = validFileIds.map((id) => new mongoose.Types.ObjectId(id));
+  const dirObjectIds = validDirIds.map((id) => new mongoose.Types.ObjectId(id));
+
+  const ownedRootDirs = dirObjectIds.length
+    ? await Directory.find({
+        _id: { $in: dirObjectIds },
+        userId,
+        isDeleted: true,
+      }).select("_id").lean()
+    : [];
+
+  const treeIds = ownedRootDirs.length
+    ? await collectDirectoryTreeIds(ownedRootDirs.map((d) => d._id), userId)
+    : [];
+
+  const filesFromDirs = treeIds.length
+    ? await Files.find({
+        userId,
+        parentDirId: { $in: treeIds },
+      }).select("_id extension size").lean()
+    : [];
+
+  const explicitFiles = fileObjectIds.length
+    ? await Files.find({
+        _id: { $in: fileObjectIds },
+        userId,
+        isDeleted: true,
+      }).select("_id extension size").lean()
+    : [];
+
+  const filesMap = new Map();
+  for (const file of [...filesFromDirs, ...explicitFiles]) {
+    filesMap.set(file._id.toString(), file);
+  }
+  const filesToDelete = [...filesMap.values()];
+
+  let storageToDecrement = 0;
+  for (const file of filesToDelete) {
+    storageToDecrement += Number(file.size || 0);
+  }
+
+  await Promise.all(
+    filesToDelete.map(async (file) => {
+      const filePath = path.join(process.cwd(), "storage", `${file._id.toString()}${file.extension}`);
+      try {
+        await rm(filePath);
+      } catch {
+        // ignore missing files
+      }
+    })
+  );
+
+  if (filesToDelete.length) {
+    await Files.deleteMany({
+      _id: { $in: filesToDelete.map((f) => f._id) },
+      userId,
+    });
+  }
+
+  if (treeIds.length) {
+    await Directory.deleteMany({
+      _id: { $in: treeIds },
+      userId,
+    });
+  }
+
+  if (storageToDecrement > 0) {
+    await User.updateOne(
+      { _id: userId },
+      { $inc: { storageUsed: -storageToDecrement } }
+    );
+  }
+
+  return res.json({
+    message: "Bulk permanent delete completed",
+    filesDeleted: filesToDelete.length,
+    foldersDeleted: treeIds.length,
+  });
+};
 
 async function importSingleFile(file, accessToken, userId, parentDirData) {
   // 1️⃣ Fetch metadata again (never trust frontend fully)

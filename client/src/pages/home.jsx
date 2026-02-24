@@ -9,15 +9,25 @@ import { useAuth } from "../context/AuthContext.jsx";
 import ShareFileModal from "../components/modals/ShareFileModal.jsx";
 import { importFromDrive } from "../api/authApi.js";
 import { createDirectory, getBreadcrumbs, getDirectory, softDeleteDirectory, renameDirectory, toggleDirectoryStar } from "../api/directoryApi.js";
-import { deleteFile, renameFile, softDeleteFile, toggleFileStar } from "../api/fileApi.js";
+import { bulkMoveToBin, deleteFile, downloadBulkZip, getBulkDownloadLinks, renameFile, softDeleteFile, toggleFileStar } from "../api/fileApi.js";
 
+const HOME_VIEW_STORAGE_KEY = "home:view";
 
 export default function Home() {
   const [selectedItemId, setSelectedItemId] = useState(null);
   const [statusMessage, setStatusMessage] = useState({ type: "", text: "" });
+  const [bulkSelection, setBulkSelection] = useState({});
+  const [isMultiSelectMode, setIsMultiSelectMode] = useState(false);
 
   const { refreshUser , user} = useAuth();
-  const [view, setView] = useState("list"); 
+  const [view, setView] = useState(() => {
+    try {
+      const saved = localStorage.getItem(HOME_VIEW_STORAGE_KEY);
+      return saved === "grid" || saved === "list" ? saved : "list";
+    } catch {
+      return "list";
+    }
+  }); 
   const [sortBy, setSortBy] = useState("name"); 
 const [sortOrder, setSortOrder] = useState("asc"); 
  const [showNewMenu, setShowNewMenu] = useState(false);
@@ -41,6 +51,35 @@ const [sharefileDetails, setShareFileDetails] = useState({
   const [driveImportControllers, setDriveImportControllers] = useState({});
   const [isDriveImporting, setIsDriveImporting] = useState(false);
   const cancelledDriveImportsRef = useRef(new Set());
+
+  const selectedCount = Object.keys(bulkSelection).length;
+
+function handleToggleMultiSelectMode() {
+  setIsMultiSelectMode((prev) => {
+    const next = !prev;
+    if (!next) {
+      clearBulkSelection();
+    }
+    return next;
+  });
+}
+
+function handleSelectAllVisibleItems() {
+  const next = {};
+  for (const item of sortedItems) {
+    if (!isSelectableItem(item)) continue;
+    next[item.id] = item.isDirectory ? "directory" : "file";
+  }
+  setBulkSelection(next);
+}
+
+useEffect(() => {
+  try {
+    localStorage.setItem(HOME_VIEW_STORAGE_KEY, view);
+  } catch {
+    // Ignore localStorage failures
+  }
+}, [view]);
 
 
 useEffect(() => {
@@ -306,6 +345,8 @@ const [directoryName, setDirectoryName] = useState("My Files");
     useEffect(() => {
       if (!user) return; 
         getDirectoryItems();
+        clearBulkSelection();
+        setIsMultiSelectMode(false);
 
         if (!dirId) {
     setBreadcrumbs([{ id: null, name: "All Files" }]);
@@ -597,8 +638,6 @@ async function moveFolderToBin(folderId) {
     function handleContextMenu(e, id) {
       e.stopPropagation();
       e.preventDefault();
-      const clickX = e.clientX;
-      const clickY = e.clientY;
   
       if (activeContextMenu === id) {
         setActiveContextMenu(null);
@@ -669,6 +708,197 @@ const isTempDriveImportItem = (item) =>
   !item.isDirectory &&
   typeof item.id === "string" &&
   item.id.startsWith("drive-temp-");
+
+const isBusyItem = (item) => isTempUploadItem(item) || isTempDriveImportItem(item);
+const isSelectableItem = (item) => item?.id && !isBusyItem(item);
+const isItemSelected = (item) => Boolean(bulkSelection[item.id]);
+
+function toggleBulkSelection(item) {
+  if (!isSelectableItem(item)) return;
+
+  setBulkSelection((prev) => {
+    const copy = { ...prev };
+    if (copy[item.id]) {
+      delete copy[item.id];
+    } else {
+      copy[item.id] = item.isDirectory ? "directory" : "file";
+    }
+    return copy;
+  });
+}
+
+function clearBulkSelection() {
+  setBulkSelection({});
+}
+
+function getBulkIds() {
+  const fileIds = [];
+  const directoryIds = [];
+
+  for (const [id, type] of Object.entries(bulkSelection)) {
+    if (type === "directory") directoryIds.push(id);
+    else fileIds.push(id);
+  }
+  return { fileIds, directoryIds };
+}
+
+async function handleBulkMoveSelectionToBin() {
+  const { fileIds, directoryIds } = getBulkIds();
+  if (!fileIds.length && !directoryIds.length) return;
+
+  try {
+    await bulkMoveToBin({ fileIds, directoryIds });
+    showStatus("success", "Selected items moved to bin.");
+    clearBulkSelection();
+    await getDirectoryItems();
+  } catch (error) {
+    showStatus("error", error?.message || "Failed to move selected items to bin.");
+  }
+}
+
+async function handleBulkDownloadSelected() {
+  const { fileIds, directoryIds } = getBulkIds();
+  if (!fileIds.length && !directoryIds.length) return;
+
+  try {
+    const response = await getBulkDownloadLinks({ fileIds, directoryIds });
+    const links = response?.links || [];
+    links.forEach((link, index) => {
+      setTimeout(() => {
+        const anchor = document.createElement("a");
+        anchor.href = link.url;
+        anchor.download = "";
+        document.body.appendChild(anchor);
+        anchor.click();
+        anchor.remove();
+      }, index * 150);
+    });
+    showStatus("success", `${links.length} file(s) download started.`);
+  } catch (error) {
+    showStatus("error", error?.message || "Failed to download selected items.");
+  }
+}
+
+async function handleBulkDownloadAsZip() {
+  const { fileIds, directoryIds } = getBulkIds();
+  if (!fileIds.length && !directoryIds.length) return;
+
+  try {
+    const zipBlob = await downloadBulkZip({ fileIds, directoryIds });
+    const url = window.URL.createObjectURL(zipBlob);
+    const anchor = document.createElement("a");
+    anchor.href = url;
+    anchor.download = `cloudvault-download-${Date.now()}.zip`;
+    document.body.appendChild(anchor);
+    anchor.click();
+    anchor.remove();
+    window.URL.revokeObjectURL(url);
+    showStatus("success", "ZIP download started.");
+  } catch (error) {
+    showStatus("error", error?.message || "Failed to download ZIP.");
+  }
+}
+
+function getMenuPosition(e, menuHeight = 220, bottomOffset = 80) {
+  const menuWidth = 180;
+  const viewportWidth = window.innerWidth;
+  const viewportHeight = window.innerHeight;
+
+  let x = e.clientX;
+  let y = e.clientY;
+
+  if (x + menuWidth > viewportWidth) {
+    x = viewportWidth - menuWidth - 8;
+  }
+
+  if (y + menuHeight > viewportHeight) {
+    y = viewportHeight - menuHeight - bottomOffset;
+  }
+
+  return { x, y };
+}
+
+function openItemMenu(e, item, options = {}) {
+  const { shouldSelect = false, bottomOffset = 80 } = options;
+  if (isBusyItem(item)) return;
+
+  if (shouldSelect) {
+    setSelectedItemId(item.id);
+  }
+
+  handleContextMenu(e, item.id);
+  const position = getMenuPosition(e, 220, bottomOffset);
+
+  setMenuState({
+    id: item.id,
+    ...position,
+    type: "folder",
+  });
+}
+
+function handleItemSelect(id) {
+  if (isUploading || isDriveImporting) return;
+  if (isMultiSelectMode) {
+    const item = allItems.find((x) => x.id === id);
+    if (item) toggleBulkSelection(item);
+    return;
+  }
+  setSelectedItemId(id);
+}
+
+function handleItemOpen(item) {
+  if (isUploading || isDriveImporting) return;
+  if (isMultiSelectMode) return;
+  if (item.isDirectory) {
+    navigate(`/app/${item.id}`);
+  } else {
+    window.open(`${BASE_URL}/file/${item.id}`, "_blank");
+  }
+}
+
+function renderTransferStatus(itemId, isUploadingItem, isDriveImportItem, uploadProgress) {
+  if (!isUploadingItem && !isDriveImportItem) return null;
+
+  return (
+    <div className="mt-3">
+      <div className="flex items-center gap-2">
+        {isUploadingItem ? (
+          <div className="flex-1 h-2 bg-gray-200 rounded overflow-hidden">
+            <div
+              className={`h-full transition-all ${
+                uploadProgress === 100 ? "bg-green-600" : "bg-blue-600"
+              }`}
+              style={{ width: `${uploadProgress}%` }}
+            />
+          </div>
+        ) : (
+          <div className="flex-1 h-2 bg-gray-200 rounded overflow-hidden">
+            <div className="h-full w-1/2 bg-blue-600 animate-pulse" />
+          </div>
+        )}
+
+        <button
+          onClick={(e) => {
+            e.stopPropagation();
+            isDriveImportItem ? handleCancelDriveImport(itemId) : handleCancelUpload(itemId);
+          }}
+          className="text-gray-500 hover:text-red-600 text-sm"
+        >
+          ✕
+        </button>
+      </div>
+
+      <p className="text-xs text-gray-500 mt-1">
+        {isDriveImportItem ? "Importing from Drive..." : `Uploading… ${Math.floor(uploadProgress)}%`}
+      </p>
+    </div>
+  );
+}
+
+function applySortBy(nextSortBy) {
+  setSortBy(nextSortBy);
+  setSortOrder(nextSortBy === "modified" ? "desc" : "asc");
+}
 
 
 async function toggleStar(id, isDirectory) {
@@ -834,7 +1064,7 @@ async function toggleStar(id, isDirectory) {
             label="Name"
             active={sortBy === "name"}
             onClick={() => {
-              setSortBy("name");
+              applySortBy("name");
               setOpen(false);
             }}
           />
@@ -842,7 +1072,7 @@ async function toggleStar(id, isDirectory) {
             label="Last modified"
             active={sortBy === "modified"}
             onClick={() => {
-              setSortBy("modified");
+              applySortBy("modified");
               setOpen(false);
             }}
           />
@@ -850,7 +1080,7 @@ async function toggleStar(id, isDirectory) {
             label="File size"
             active={sortBy === "size"}
             onClick={() => {
-              setSortBy("size");
+              applySortBy("size");
               setOpen(false);
             }}
           />
@@ -883,7 +1113,7 @@ async function toggleStar(id, isDirectory) {
  
     <select
       value={sortBy}
-      onChange={(e) => setSortBy(e.target.value)}
+      onChange={(e) => applySortBy(e.target.value)}
       className="hidden md:flex border-gray-400 outline-0 border rounded px-2 py-2 text-sm"
     >
       
@@ -929,6 +1159,45 @@ async function toggleStar(id, isDirectory) {
     </p>
 </div>
 
+{isMultiSelectMode && (
+  <div className="mb-3 flex flex-wrap items-center gap-2 rounded border border-blue-200 bg-blue-50 px-3 py-2">
+    <span className="text-sm font-medium text-blue-900">{selectedCount} selected</span>
+    <button
+      onClick={handleSelectAllVisibleItems}
+      className="rounded bg-white px-3 py-1 text-xs font-medium text-gray-700 hover:bg-gray-100"
+    >
+      Select All
+    </button>
+    <button
+      onClick={handleBulkDownloadSelected}
+      disabled={selectedCount === 0}
+      className="rounded bg-white px-3 py-1 text-xs font-medium text-gray-700 hover:bg-gray-100 disabled:opacity-50"
+    >
+      Download
+    </button>
+    <button
+      onClick={handleBulkDownloadAsZip}
+      disabled={selectedCount === 0}
+      className="rounded bg-white px-3 py-1 text-xs font-medium text-gray-700 hover:bg-gray-100 disabled:opacity-50"
+    >
+      Download ZIP
+    </button>
+    <button
+      onClick={handleBulkMoveSelectionToBin}
+      disabled={selectedCount === 0}
+      className="rounded bg-red-600 px-3 py-1 text-xs font-medium text-white hover:bg-red-700 disabled:opacity-50"
+    >
+      Move to Bin
+    </button>
+    <button
+      onClick={clearBulkSelection}
+      className="rounded bg-white px-3 py-1 text-xs font-medium text-gray-700 hover:bg-gray-100"
+    >
+      Clear
+    </button>
+  </div>
+)}
+
 
   {view === "list" && (
   <div className="grid grid-cols-1 gap-4 pb-20 md:pb-2">
@@ -946,55 +1215,24 @@ const icon = getFileIcon(item.name)
   ${selectedItemId === item.id ? "bg-blue-50 border-blue-400" : "hover:bg-gray-50"}
 `}
 
-  onClick={() => {
-  if (isUploading || isDriveImporting) return;
-  setSelectedItemId(item.id);
-}}
-onDoubleClick={() => {
-  if (isUploading || isDriveImporting) return;
-
-  if (item.isDirectory) {
-    navigate(`/app/${item.id}`);
-  } else {
-    window.open(`${BASE_URL}/file/${item.id}`, "_blank");
-  }
-}}
+  onClick={() => handleItemSelect(item.id)}
+onDoubleClick={() => handleItemOpen(item)}
 
   onContextMenu={(e) => {
-    if (isUploadingItem || isDriveImportItem) return; 
-    e.preventDefault();
-    setSelectedItemId(item.id);
-    handleContextMenu(e, item.id);
-    const menuWidth = 180;
-  const menuHeight = 220;
-
-  const viewportWidth = window.innerWidth;
-  const viewportHeight = window.innerHeight;
-
-  let x = e.clientX;
-  let y = e.clientY;
-
-  // Prevent overflow on right
-  if (x + menuWidth > viewportWidth) {
-    x = viewportWidth - menuWidth - 8;
-  }
-
-  // Prevent overflow at bottom
-  if (y + menuHeight > viewportHeight) {
-    y = viewportHeight - menuHeight - 80;
-  }
-
-  setMenuState({
-    id: item.id,
-    x,
-    y,
-    type: "folder",
-  });
+    openItemMenu(e, item, { shouldSelect: true, bottomOffset: 80 });
   }}
 >
   {/* Top row */}
   <div className="flex justify-between items-center gap-3">
     <div className="flex items-center gap-2 truncate">
+      {isMultiSelectMode && isSelectableItem(item) && (
+        <input
+          type="checkbox"
+          checked={isItemSelected(item)}
+          onClick={(e) => e.stopPropagation()}
+          onChange={() => toggleBulkSelection(item)}
+        />
+      )}
       {item.size === undefined ? (
         <FaFolder className="text-4xl text-kala shrink-0" />
       ) : ( 
@@ -1019,75 +1257,12 @@ onDoubleClick={() => {
         }} className={` ${item.isStarred ? "text-yellow-400" : "text-gray-400  opacity-0 group-hover:opacity-100"} transition-opacity`} />
         
       <MoreVertical onClick={(e) => {
-    if (isUploadingItem || isDriveImportItem) return; 
-    e.preventDefault();
-    handleContextMenu(e, item.id);
-    setSelectedItemId(item.id);
-    const menuWidth = 180;
-  const menuHeight = 220;
-
-  const viewportWidth = window.innerWidth;
-  const viewportHeight = window.innerHeight;
-
-  let x = e.clientX;
-  let y = e.clientY;
-
-  // Prevent overflow on right
-  if (x + menuWidth > viewportWidth) {
-    x = viewportWidth - menuWidth - 8;
-  }
-
-  // Prevent overflow at bottom
-  if (y + menuHeight > viewportHeight) {
-    y = viewportHeight - menuHeight - 80;
-  }
-
-  setMenuState({
-    id: item.id,
-    x,
-    y,
-    type: "folder",
-  });
+    openItemMenu(e, item, { shouldSelect: true, bottomOffset: 80 });
   }} className="text-gray-400" />
     </div>
   </div>
 
-  {/* Uploading row (INLINE, BELOW NAME) */}
-  {(isUploadingItem || isDriveImportItem) && (
-    <div className="mt-3">
-      <div className="flex items-center gap-2">
-        {isUploadingItem ? (
-          <div className="flex-1 h-2 bg-gray-200 rounded overflow-hidden">
-            <div
-              className={`h-full transition-all ${
-                uploadProgress === 100 ? "bg-green-600" : "bg-blue-600"
-              }`}
-              style={{ width: `${uploadProgress}%` }}
-            />
-          </div>
-        ) : (
-          <div className="flex-1 h-2 bg-gray-200 rounded overflow-hidden">
-            <div className="h-full w-1/2 bg-blue-600 animate-pulse" />
-          </div>
-        )}
-
-        {/* Cancel button */}
-        <button
-          onClick={(e) => {
-            e.stopPropagation();
-            isDriveImportItem ? handleCancelDriveImport(item.id) : handleCancelUpload(item.id);
-          }}
-          className="text-gray-500 hover:text-red-600 text-sm"
-        >
-          ✕
-        </button>
-      </div>
-
-      <p className="text-xs text-gray-500 mt-1">
-        {isDriveImportItem ? "Importing from Drive..." : `Uploading… ${Math.floor(uploadProgress)}%`}
-      </p>
-    </div>
-  )}
+  {renderTransferStatus(item.id, isUploadingItem, isDriveImportItem, uploadProgress)}
 </div>
 
      
@@ -1109,49 +1284,10 @@ const uploadProgress = progressMap[item.id] || 0;
   key={item.id}
  className={` my-2
 `}
-   onClick={() => {
-  if (isUploading || isDriveImporting) return;
-  setSelectedItemId(item.id);
-}}
-onDoubleClick={() => {
-  if (isUploading || isDriveImporting) return;
-
-  if (item.isDirectory) {
-    navigate(`/app/${item.id}`);
-  } else {
-    window.open(`${BASE_URL}/file/${item.id}`, "_blank");
-  }
-}}
+   onClick={() => handleItemSelect(item.id)}
+onDoubleClick={() => handleItemOpen(item)}
   onContextMenu={(e) => {
-    if (isUploadingItem || isDriveImportItem) return; 
-    e.preventDefault();
-    setSelectedItemId(item.id);
-    handleContextMenu(e, item.id);
-    const menuWidth = 180;
-  const menuHeight = 220;
-
-  const viewportWidth = window.innerWidth;
-  const viewportHeight = window.innerHeight;
-
-  let x = e.clientX;
-  let y = e.clientY;
-
-  // Prevent overflow on right
-  if (x + menuWidth > viewportWidth) {
-    x = viewportWidth - menuWidth - 8;
-  }
-
-  // Prevent overflow at bottom
-  if (y + menuHeight > viewportHeight) {
-    y = viewportHeight - menuHeight - 8;
-  }
-
-  setMenuState({
-    id: item.id,
-    x,
-    y,
-    type: "folder",
-  });
+    openItemMenu(e, item, { shouldSelect: true, bottomOffset: 8 });
   }}
 >
   {/* Top row */}
@@ -1160,6 +1296,14 @@ onDoubleClick={() => {
         <div  className={`border group  rounded-lg px-4 py-1 cursor-pointer  ${selectedItemId === item.id ? "bg-blue-50 border-blue-400" : "hover:bg-gray-50 border-gray-300  "}`}>
          <div className="flex justify-between w-full">
            <div className="flex  items-center  min-w-0"> 
+            {isMultiSelectMode && isSelectableItem(item) && (
+              <input
+                type="checkbox"
+                checked={isItemSelected(item)}
+                onClick={(e) => e.stopPropagation()}
+                onChange={() => toggleBulkSelection(item)}
+              />
+            )}
             <FaFolder className="text-4xl text-kala shrink-0" />
              <div className="flex flex-col truncate min-w-0 ">
         <p className="text-sm truncate pl-1">{item.name}</p>
@@ -1173,35 +1317,7 @@ onDoubleClick={() => {
         toggleStar(item.id, item.isDirectory)
         }} className={` ${item.isStarred ? "text-yellow-400" : "text-gray-400  opacity-0 group-hover:opacity-100"} transition-opacity`}  />
       <MoreVertical onClick={(e) => {
-    if (isUploadingItem || isDriveImportItem) return; 
-    e.preventDefault();
-    handleContextMenu(e, item.id);
-    setSelectedItemId(item.id);
-    const menuWidth = 180;
-  const menuHeight = 220;
-
-  const viewportWidth = window.innerWidth;
-  const viewportHeight = window.innerHeight;
-
-  let x = e.clientX;
-  let y = e.clientY;
-
-  // Prevent overflow on right
-  if (x + menuWidth > viewportWidth) {
-    x = viewportWidth - menuWidth - 8;
-  }
-
-  // Prevent overflow at bottom
-  if (y + menuHeight > viewportHeight) {
-    y = viewportHeight - menuHeight - 8;
-  }
-
-  setMenuState({
-    id: item.id,
-    x,
-    y,
-    type: "folder",
-  });
+    openItemMenu(e, item, { shouldSelect: true, bottomOffset: 8 });
   }}  className="text-gray-400" />
     </div>
          </div>
@@ -1209,42 +1325,7 @@ onDoubleClick={() => {
       ) : "aman" }
 
 
-  {/* Uploading row (INLINE, BELOW NAME) */}
-  {(isUploadingItem || isDriveImportItem) && (
-    <div className="mt-3">
-      <div className="flex items-center gap-2">
-        {isUploadingItem ? (
-          <div className="flex-1 h-2 bg-gray-200 rounded overflow-hidden">
-            <div
-              className={`h-full transition-all ${
-                uploadProgress === 100 ? "bg-green-600" : "bg-blue-600"
-              }`}
-              style={{ width: `${uploadProgress}%` }}
-            />
-          </div>
-        ) : (
-          <div className="flex-1 h-2 bg-gray-200 rounded overflow-hidden">
-            <div className="h-full w-1/2 bg-blue-600 animate-pulse" />
-          </div>
-        )}
-
-        {/* Cancel button */}
-        <button
-          onClick={(e) => {
-            e.stopPropagation();
-            isDriveImportItem ? handleCancelDriveImport(item.id) : handleCancelUpload(item.id);
-          }}
-          className="text-gray-500 hover:text-red-600 text-sm"
-        >
-          ✕
-        </button>
-      </div>
-
-      <p className="text-xs text-gray-500 mt-1">
-        {isDriveImportItem ? "Importing from Drive..." : `Uploading… ${Math.floor(uploadProgress)}%`}
-      </p>
-    </div>
-  )}
+  {renderTransferStatus(item.id, isUploadingItem, isDriveImportItem, uploadProgress)}
 </div>
 
      
@@ -1270,49 +1351,10 @@ const icon = getFileIcon(item.name);
   //   !(activeContextMenu || isUploading) &&
   //   handleRowClick(item.isDirectory ? "directory" : "file", item.id)
   // }
-   onClick={() => {
-  if (isUploading || isDriveImporting) return;
-  setSelectedItemId(item.id);
-}}
-onDoubleClick={() => {
-  if (isUploading || isDriveImporting) return;
-
-  if (item.isDirectory) {
-    navigate(`/app/${item.id}`);
-  } else {
-    window.open(`${BASE_URL}/file/${item.id}`, "_blank");
-  }
-}}
+   onClick={() => handleItemSelect(item.id)}
+onDoubleClick={() => handleItemOpen(item)}
   onContextMenu={(e) => {
-    if (isUploadingItem || isDriveImportItem) return; 
-    e.preventDefault();
-    setSelectedItemId(item.id);
-    handleContextMenu(e, item.id);
-    const menuWidth = 180;
-  const menuHeight = 220;
-
-  const viewportWidth = window.innerWidth;
-  const viewportHeight = window.innerHeight;
-
-  let x = e.clientX;
-  let y = e.clientY;
-
-  // Prevent overflow on right
-  if (x + menuWidth > viewportWidth) {
-    x = viewportWidth - menuWidth - 8;
-  }
-
-  // Prevent overflow at bottom
-  if (y + menuHeight > viewportHeight) {
-    y = viewportHeight - menuHeight - 80;
-  }
-
-  setMenuState({
-    id: item.id,
-    x,
-    y,
-    type: "folder",
-  });
+    openItemMenu(e, item, { shouldSelect: true, bottomOffset: 80 });
   }}
   
 >
@@ -1328,6 +1370,14 @@ onDoubleClick={() => {
        <div className="flex flex-col w-full">
           <div className="flex justify-between w-full">
            <div className="flex items-center gap-2 min-w-0"> 
+          {isMultiSelectMode && isSelectableItem(item) && (
+            <input
+              type="checkbox"
+              checked={isItemSelected(item)}
+              onClick={(e) => e.stopPropagation()}
+              onChange={() => toggleBulkSelection(item)}
+            />
+          )}
           { icon && <img src={getFileIcon(item.name)} className="w-5 shrink-0" /> }
              <div className="flex flex-col truncate min-w-0">
         <p className="text-sm truncate">{item.name}</p>
@@ -1340,34 +1390,7 @@ onDoubleClick={() => {
         toggleStar(item.id, item.isDirectory)
         }} className={` ${item.isStarred ? "text-yellow-400" : "text-gray-400  opacity-0 group-hover:opacity-100"} transition-opacity`}  />
       <MoreVertical onClick={(e) => {
-    if (isUploadingItem || isDriveImportItem) return; 
-    e.preventDefault();
-    handleContextMenu(e, item.id);
-    const menuWidth = 180;
-  const menuHeight = 220;
-
-  const viewportWidth = window.innerWidth;
-  const viewportHeight = window.innerHeight;
-
-  let x = e.clientX;
-  let y = e.clientY;
-
-  // Prevent overflow on right
-  if (x + menuWidth > viewportWidth) {
-    x = viewportWidth - menuWidth - 8;
-  }
-
-  // Prevent overflow at bottom
-  if (y + menuHeight > viewportHeight) {
-    y = viewportHeight - menuHeight - 18;
-  }
-
-  setMenuState({
-    id: item.id,
-    x,
-    y,
-    type: "folder",
-  });
+    openItemMenu(e, item, { shouldSelect: false, bottomOffset: 18 });
   }} className="text-gray-400" />
     </div>
    
@@ -1394,42 +1417,7 @@ onDoubleClick={() => {
       )}
   </div>
 
-  {/* Uploading row (INLINE, BELOW NAME) */}
-  {(isUploadingItem || isDriveImportItem) && (
-    <div className="mt-3">
-      <div className="flex items-center gap-2">
-        {isUploadingItem ? (
-          <div className="flex-1 h-2 bg-gray-200 rounded overflow-hidden">
-            <div
-              className={`h-full transition-all ${
-                uploadProgress === 100 ? "bg-green-600" : "bg-blue-600"
-              }`}
-              style={{ width: `${uploadProgress}%` }}
-            />
-          </div>
-        ) : (
-          <div className="flex-1 h-2 bg-gray-200 rounded overflow-hidden">
-            <div className="h-full w-1/2 bg-blue-600 animate-pulse" />
-          </div>
-        )}
-
-        {/* Cancel button */}
-        <button
-          onClick={(e) => {
-            e.stopPropagation();
-            isDriveImportItem ? handleCancelDriveImport(item.id) : handleCancelUpload(item.id);
-          }}
-          className="text-gray-500 hover:text-red-600 text-sm"
-        >
-          ✕
-        </button>
-      </div>
-
-      <p className="text-xs text-gray-500 mt-1">
-        {isDriveImportItem ? "Importing from Drive..." : `Uploading… ${Math.floor(uploadProgress)}%`}
-      </p>
-    </div>
-  )}
+  {renderTransferStatus(item.id, isUploadingItem, isDriveImportItem, uploadProgress)}
 </div>
 
      
@@ -1456,6 +1444,8 @@ onDoubleClick={() => {
           toggleStar={toggleStar}
           setShowShareModal={setShowShareModal}
           shareFileDetails={setShareFileDetails}
+          isMultiSelectMode={isMultiSelectMode}
+          onToggleMultiSelectMode={handleToggleMultiSelectMode}
           onClose={() => {
             setMenuState(null);
             setActiveContextMenu(null);

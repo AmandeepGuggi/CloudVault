@@ -38,3 +38,32 @@ export const toggleFileStar = async (id) => {
   );
   return data;
 };
+
+export const bulkMoveToBin = async ({ fileIds = [], directoryIds = [] }) => {
+  const { data } = await axiosWithCreds.post("/file/bulk/bin", { fileIds, directoryIds });
+  return data;
+};
+
+export const getBulkDownloadLinks = async ({ fileIds = [], directoryIds = [] }) => {
+  const { data } = await axiosWithCreds.post("/file/bulk/download-links", { fileIds, directoryIds });
+  return data;
+};
+
+export const downloadBulkZip = async ({ fileIds = [], directoryIds = [] }) => {
+  const response = await axiosWithCreds.post(
+    "/file/bulk/download-zip",
+    { fileIds, directoryIds },
+    { responseType: "blob" }
+  );
+  return response.data;
+};
+
+export const bulkRestoreFromBin = async ({ fileIds = [], directoryIds = [] }) => {
+  const { data } = await axiosWithCreds.post("/file/bulk/restore", { fileIds, directoryIds });
+  return data;
+};
+
+export const bulkDeleteForeverFromBin = async ({ fileIds = [], directoryIds = [] }) => {
+  const { data } = await axiosWithCreds.post("/file/bulk/permanently-delete", { fileIds, directoryIds });
+  return data;
+};

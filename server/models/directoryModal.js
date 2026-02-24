@@ -28,6 +28,10 @@ const directorySchema = new Schema({
         type: Boolean,
         default: false
     },
+    deletedAt: {
+        type: Date,
+        default: null
+    },
 }, {
     strict: 'throw',
     timestamps: true,
