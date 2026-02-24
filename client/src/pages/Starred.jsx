@@ -2,227 +2,229 @@ import { useEffect, useMemo, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { BASE_URL, getFileIcon, formatBytes } from "../utility";
 import { FaFolder, FaStar } from "react-icons/fa";
-import { LayoutGrid, List } from "lucide-react";
+import { bulkUnstarItems } from "../api/fileApi";
 
 export default function Starred() {
   const navigate = useNavigate();
 
-  const [view, setView] = useState("list");
   const [files, setFiles] = useState([]);
   const [folders, setFolders] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
+  const [selected, setSelected] = useState({});
 
-    async function toggleStar(id, type) {
-  const url =
-    type === true
-      ? `${BASE_URL}/directory/${id}/starred`
-      : `${BASE_URL}/file/${id}/starred`;
+  const items = useMemo(
+    () => [
+      ...folders.map((folder) => ({
+        ...folder,
+        id: folder._id,
+        isDirectory: true,
+      })),
+      ...files.map((file) => ({
+        ...file,
+        id: file._id,
+        isDirectory: false,
+      })),
+    ],
+    [folders, files]
+  );
 
-  try {
-    const res = await fetch(url, {
-      method: "PATCH",
-      credentials: "include",
-    });
+  const selectedCount = Object.keys(selected).length;
 
-    const data = await res.json();
-    if (type === undefined) {
-      setFiles(prev =>
-        prev.map(f =>
-          f.id === id ? { ...f, isStarred: data.isStarred } : f
-        )
-      );
-    } else {
-      setFolders(prev =>
-        prev.map(d =>
-          d.id === id ? { ...d, isStarred: data.isStarred } : d
-        )
-      );
-    }
-    fetchStarred()
-  } catch (err) {
-    console.error("Failed to toggle star", err);
+  function itemKey(item) {
+    return `${item.isDirectory ? "directory" : "file"}:${item.id}`;
   }
-}
-  async function fetchStarred() {
-      try {
-        setLoading(true);
 
+  function getSelectedPayload() {
+    const fileIds = [];
+    const directoryIds = [];
 
-const filesRes = await fetch(`${BASE_URL}/file/starred`, { credentials: "include" });
-const foldersRes = await fetch(`${BASE_URL}/directory/starred`, { credentials: "include" });
-
-
-        if (!filesRes.ok || !foldersRes.ok) {
-          throw new Error("Failed to fetch starred items");
-        }
-
-        const filesData = await filesRes.json();
-        const foldersData = await foldersRes.json();
-
-        setFiles(
-          filesData.map(f => ({
-            ...f,
-            isDirectory: false,
-            isStarred: true,
-          }))
-        );
-
-        setFolders(
-          foldersData.map(d => ({
-            ...d,
-            isDirectory: true,
-            isStarred: true,
-          }))
-        );
-      } catch (err) {
-        setError(err.message);
-      } finally {
-        setLoading(false);
-      }
+    for (const entry of Object.values(selected)) {
+      if (entry.type === "directory") directoryIds.push(entry.id);
+      else fileIds.push(entry.id);
     }
 
-  // fetch starred items
+    return { fileIds, directoryIds };
+  }
+
+  async function fetchStarred() {
+    try {
+      setLoading(true);
+      setError("");
+
+      const [filesRes, foldersRes] = await Promise.all([
+        fetch(`${BASE_URL}/file/starred`, { credentials: "include" }),
+        fetch(`${BASE_URL}/directory/starred`, { credentials: "include" }),
+      ]);
+
+      if (!filesRes.ok || !foldersRes.ok) {
+        throw new Error("Failed to fetch starred items");
+      }
+
+      const [filesData, foldersData] = await Promise.all([
+        filesRes.json(),
+        foldersRes.json(),
+      ]);
+
+      setFiles(filesData || []);
+      setFolders(foldersData || []);
+    } catch (err) {
+      setError(err.message || "Failed to fetch starred items");
+    } finally {
+      setLoading(false);
+    }
+  }
+
   useEffect(() => {
     fetchStarred();
   }, []);
 
-  const items = useMemo(() => {
-    return [...folders, ...files];
-  }, [folders, files]);
-
   function openItem(item) {
     if (item.isDirectory) {
-      navigate(`/app/${item._id}`);
+      navigate(`/app/${item.id}`);
     } else {
-      window.location.href = `${BASE_URL}/file/${item._id}`;
+      window.location.href = `${BASE_URL}/file/${item.id}`;
     }
   }
 
-  if (loading) {
-    return <p className="p-4 text-gray-500">Loading starred items…</p>;
+  function toggleSelect(item) {
+    const key = itemKey(item);
+    setSelected((prev) => {
+      const next = { ...prev };
+      if (next[key]) {
+        delete next[key];
+      } else {
+        next[key] = {
+          id: item.id,
+          type: item.isDirectory ? "directory" : "file",
+        };
+      }
+      return next;
+    });
   }
 
-  if (error) {
-    return <p className="p-4 text-red-500">{error}</p>;
+  function selectAll() {
+    const next = {};
+    for (const item of items) {
+      next[itemKey(item)] = {
+        id: item.id,
+        type: item.isDirectory ? "directory" : "file",
+      };
+    }
+    setSelected(next);
   }
+
+  function clearSelection() {
+    setSelected({});
+  }
+
+  async function unstarSingle(item) {
+    const payload = item.isDirectory
+      ? { fileIds: [], directoryIds: [item.id] }
+      : { fileIds: [item.id], directoryIds: [] };
+
+    try {
+      await bulkUnstarItems(payload);
+      setSelected((prev) => {
+        const next = { ...prev };
+        delete next[itemKey(item)];
+        return next;
+      });
+      await fetchStarred();
+    } catch {
+      setError("Failed to unstar item");
+    }
+  }
+
+  async function unstarSelected() {
+    if (!selectedCount) return;
+
+    try {
+      await bulkUnstarItems(getSelectedPayload());
+      clearSelection();
+      await fetchStarred();
+    } catch {
+      setError("Failed to unstar selected items");
+    }
+  }
+
+  if (loading) return <p className="p-4 text-gray-500">Loading starred items...</p>;
+  if (error) return <p className="p-4 text-red-500">{error}</p>;
 
   return (
-    <div className="px-4 pb-20">
-      {/* Header */}
-      <div className="flex items-center justify-between mb-4">
+    <div className="px-3 pb-20 md:pb-4">
+      <div className="mb-3 flex items-center justify-between">
         <div>
-          <h1 className="text-2xl font-semibold text-gray-700">Starred</h1>
-          <p className="text-sm text-gray-400">{items.length} items</p>
-        </div>
-
-        {/* View toggle */}
-        <div className="flex bg-gray-100 rounded-md p-1">
-          <button
-            onClick={() => setView("grid")}
-            className={`p-2 rounded ${
-              view === "grid" ? "bg-blue-primary text-white" : ""
-            }`}
-          >
-            <LayoutGrid size={18} />
-          </button>
-          <button
-            onClick={() => setView("list")}
-            className={`p-2 rounded ${
-              view === "list" ? "bg-blue-primary text-white" : ""
-            }`}
-          >
-            <List size={18} />
-          </button>
+          <h1 className="text-xl font-semibold text-gray-700">Starred</h1>
+          <p className="text-xs text-gray-500">{items.length} items</p>
         </div>
       </div>
 
-      {/* Empty state */}
-      {items.length === 0 && (
-        <p className="text-gray-400 text-sm">No starred items</p>
+      {selectedCount > 0 && (
+        <div className="mb-3 flex flex-wrap items-center gap-2 rounded border border-yellow-200 bg-yellow-50 px-3 py-2">
+          <span className="text-sm font-medium text-yellow-900">{selectedCount} selected</span>
+          <button
+            onClick={selectAll}
+            className="rounded bg-white px-3 py-1 text-xs font-medium text-gray-700 hover:bg-gray-100"
+          >
+            Select all
+          </button>
+          <button
+            onClick={unstarSelected}
+            className="rounded bg-white px-3 py-1 text-xs font-medium text-gray-700 hover:bg-gray-100"
+          >
+            Unstar selected
+          </button>
+          <button
+            onClick={clearSelection}
+            className="rounded bg-white px-3 py-1 text-xs font-medium text-gray-700 hover:bg-gray-100"
+          >
+            Clear
+          </button>
+        </div>
       )}
 
-      {/* LIST VIEW */}
-      {view === "list" && (
-        <div className="grid gap-3">
-          {items.map(item => (
-            <div
-              key={item._id}
-              onClick={() => openItem(item)}
-              className="border border-gray-300 rounded-lg p-4 flex justify-between items-center cursor-pointer hover:bg-gray-50"
-            >
-              <div className="flex items-center gap-2 truncate">
-                {item.isDirectory ? (
-                  <FaFolder className="text-3xl text-blue-400" />
-                ) : (
-                  <img
-                    src={getFileIcon(item.name)}
-                    className="w-9"
-                    alt=""
-                  />
-                )}
+      {items.length === 0 && <p className="text-sm text-gray-400">No starred items</p>}
 
-                <div className="truncate">
-                  <p className="text-sm truncate">{item.name}</p>
-                  {!item.isDirectory && (
-                    <p className="text-xs text-gray-400">
-                      {formatBytes(item.size)}
-                    </p>
-                  )}
-                </div>
-              </div>
-
-              <FaStar
-                onClick={(e) => {
-                  e.stopPropagation();
-                  toggleStar(item._id, item.isDirectory);
-                }}
-                className="text-yellow-400 cursor-pointer"
+      <div className="space-y-2">
+        {items.map((item) => (
+          <div
+            key={item.id}
+            onClick={() => openItem(item)}
+            className="flex cursor-pointer items-center justify-between rounded-md border border-gray-300 px-3 py-2 hover:bg-gray-50"
+          >
+            <div className="flex min-w-0 items-center gap-2">
+              <input
+                type="checkbox"
+                checked={Boolean(selected[itemKey(item)])}
+                onClick={(e) => e.stopPropagation()}
+                onChange={() => toggleSelect(item)}
               />
-            </div>
-          ))}
-        </div>
-      )}
 
-      {/* GRID VIEW */}
-      {view === "grid" && (
-        <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-4">
-          {items.map(item => (
-            <div
-              key={item._id}
-              onClick={() => openItem(item)}
-              className="border border-gray-300 rounded-lg p-4 cursor-pointer hover:bg-gray-50"
-            >
-              <div className="flex justify-between items-start mb-3">
-                {item.isDirectory ? (
-                  <FaFolder className="text-4xl text-blue-400" />
-                ) : (
-                  <img
-                    src={getFileIcon(item.name)}
-                    className="w-10"
-                    alt=""
-                  />
-                )}
-
-                <FaStar
-                  onClick={(e) => {
-                    e.stopPropagation();
-                    toggleStar(item);
-                  }}
-                  className="text-yellow-400 cursor-pointer"
-                />
-              </div>
-
-              <p className="text-sm truncate">{item.name}</p>
-              {!item.isDirectory && (
-                <p className="text-xs text-gray-400">
-                  {formatBytes(item.size)}
-                </p>
+              {item.isDirectory ? (
+                <FaFolder className="h-5 w-5 shrink-0 text-blue-400" />
+              ) : (
+                <img src={getFileIcon(item.name)} className="w-5 shrink-0" alt="" />
               )}
+
+              <div className="min-w-0">
+                <p className="truncate text-sm text-gray-700">{item.name}</p>
+                {!item.isDirectory && (
+                  <p className="text-[11px] text-gray-400">{formatBytes(item.size)}</p>
+                )}
+              </div>
             </div>
-          ))}
-        </div>
-      )}
+
+            <FaStar
+              onClick={(e) => {
+                e.stopPropagation();
+                unstarSingle(item);
+              }}
+              className="cursor-pointer text-yellow-400"
+            />
+          </div>
+        ))}
+      </div>
     </div>
   );
 }

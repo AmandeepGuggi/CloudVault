@@ -1,6 +1,7 @@
 import redisClient from "../config/redis.js";
 import Session from "../models/sessionModal.js";
 import User from "../models/userModal.js";
+import FileShare from "../models/FileShare.js";
 
 export default async function checkAuthMiddleware(req, res, next) {
    const { sid } = req.signedCookies;
@@ -36,6 +37,23 @@ export default async function checkAuthMiddleware(req, res, next) {
   if (!user) {
     return res.status(401).json({ error: "Not logged!" });
   }
+
+  const userEmail = String(user.email || "").toLowerCase();
+  if (userEmail) {
+    await FileShare.updateMany(
+      {
+        recipientEmail: userEmail,
+        recipientUserId: null,
+      },
+      {
+        $set: {
+          recipientUserId: user._id,
+          status: "accepted",
+        },
+      }
+    );
+  }
+
   req.user = user
   next()
 }

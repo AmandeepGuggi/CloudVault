@@ -1,5 +1,5 @@
 import express from "express";
-import { bulkDeleteForeverFromBin, bulkDownloadLinks, bulkDownloadZip, bulkMoveToBin, bulkRestoreFromBin, createFile, createShareLink, deleteFilePermanently, deleteLink, driveFiles, getBinFiles, getExistingLink, getSharedFile, getStarredFiles, moveFileToBin, readFiles, restoreFile, toggleFileStar, updateFile } from "../controllers/fileController.js"
+import { acceptFileInvite, bulkDeleteForeverFromBin, bulkDownloadLinks, bulkDownloadZip, bulkMoveToBin, bulkRestoreFromBin, bulkUnstarItems, createFile, createShareLink, deleteFilePermanently, deleteLink, driveFiles, getBinFiles, getExistingLink, getFileRecipients, getSharedFile, getStarredFiles, inviteFileRecipient, moveFileToBin, readFiles, restoreFile, revokeFileRecipient, toggleFileStar, updateFile, validateShareEmail } from "../controllers/fileController.js"
 
 
 const router = express.Router();
@@ -15,6 +15,7 @@ router.post("/bulk/download-links", bulkDownloadLinks);
 router.post("/bulk/download-zip", bulkDownloadZip);
 router.post("/bulk/restore", bulkRestoreFromBin);
 router.post("/bulk/permanently-delete", bulkDeleteForeverFromBin);
+router.post("/bulk/unstar", bulkUnstarItems);
 
 // READ
 router.get('/starred', getStarredFiles );
@@ -30,8 +31,13 @@ router.patch("/", updateFile);
 router.patch('/:id/starred', toggleFileStar );
 
 //SHARE
+router.post('/share/validate-email', validateShareEmail)
 router.post('/share/:fileId', createShareLink )
 router.get('/share/:fileId', getExistingLink )
+router.post('/share/:fileId/invite', inviteFileRecipient)
+router.get('/share/:fileId/recipients', getFileRecipients)
+router.delete('/share/:fileId/recipient/:recipientId', revokeFileRecipient)
+router.post('/share/invite/:token/accept', acceptFileInvite)
 router.get('/s/:token', getSharedFile)
 router.delete('/revoke/:fileId', deleteLink)
 

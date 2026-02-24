@@ -1,6 +1,7 @@
 import { rm, mkdtemp, mkdir, copyFile } from "fs/promises";
 import path from "path";
 import fs from "fs";
+import crypto from "node:crypto";
 import { createWriteStream, readFile } from "fs";
 import Directory from "../models/directoryModal.js";
 import { fileTypeFromFile } from "file-type";
@@ -12,7 +13,9 @@ import { promisify } from "util";
 import User from "../models/userModal.js";
 import { pipeline } from "stream/promises";
 import ShareLink from "../models/ShareLink.js";
+import FileShare from "../models/FileShare.js";
 import os from "os";
+import { sendShareInviteService } from "../services/sendShareInviteService.js";
 
 const execFileAsync = promisify(execFile);
 
@@ -522,6 +525,38 @@ export const bulkDeleteForeverFromBin = async (req, res) => {
   });
 };
 
+export const bulkUnstarItems = async (req, res) => {
+  const userId = req.user._id;
+  const { fileIds = [], directoryIds = [] } = req.body || {};
+
+  const validFileIds = fileIds.filter((id) => mongoose.Types.ObjectId.isValid(id));
+  const validDirIds = directoryIds.filter((id) => mongoose.Types.ObjectId.isValid(id));
+
+  const fileObjectIds = validFileIds.map((id) => new mongoose.Types.ObjectId(id));
+  const dirObjectIds = validDirIds.map((id) => new mongoose.Types.ObjectId(id));
+
+  const [fileUpdate, dirUpdate] = await Promise.all([
+    fileObjectIds.length
+      ? Files.updateMany(
+          { _id: { $in: fileObjectIds }, userId, isDeleted: false, isStarred: true },
+          { $set: { isStarred: false } }
+        )
+      : Promise.resolve({ modifiedCount: 0 }),
+    dirObjectIds.length
+      ? Directory.updateMany(
+          { _id: { $in: dirObjectIds }, userId, isDeleted: false, isStarred: true },
+          { $set: { isStarred: false } }
+        )
+      : Promise.resolve({ modifiedCount: 0 }),
+  ]);
+
+  return res.json({
+    message: "Bulk unstar completed",
+    filesUnstarred: fileUpdate.modifiedCount || 0,
+    foldersUnstarred: dirUpdate.modifiedCount || 0,
+  });
+};
+
 async function importSingleFile(file, accessToken, userId, parentDirData) {
   // 1️⃣ Fetch metadata again (never trust frontend fully)
   const metaRes = await fetch(
@@ -851,91 +886,281 @@ export const restoreFile = async (req, res) => {
 
 export const getExistingLink = async (req, res) => {
   const userId = req.user._id;
-  const { fileId } = req.params
-  const file = await Files.findById(fileId);
-  const existingLink = await ShareLink.findOne({fileId, revoked: false})
+  const { fileId } = req.params;
+  const file = await Files.findOne({ _id: fileId, userId, isDeleted: false }).select("_id");
+  if (!file) {
+    return res.status(404).json({ error: "File does not exist" });
+  }
 
+  const existingLink = await ShareLink.findOne({ fileId, revoked: false });
+  if (!existingLink) {
+    return res.status(404).json({ error: "Share link does not exist" });
+  }
 
-if (!file) {
-  return res.status(404).json({error: "File does not exist"})
-}
-
-if (file.userId.toString() !== userId.toString() ) {
-  return res.status(404).json({error: "only owner can create link"})
-}
-
- if(existingLink){
-  res.json({
-  shareUrl: `http://localhost:4000/file/s/${existingLink.token}` });
- }else{
-return res.status(204).send();
- }
-
-
-
-}
+  return res.json({
+    shareUrl: `${process.env.SERVER_BASE_URL}/file/s/${existingLink.token}`,
+  });
+};
 
 export const createShareLink = async (req, res) => {
   const userId = req.user._id;
-  const { fileId } = req.params
+  const { fileId } = req.params;
+  const permission = req.body?.permission || "view";
   const file = await Files.findById(fileId);
-  const existingLink = await ShareLink.findOne({fileId, revoked: false})
+  const existingLink = await ShareLink.findOne({ fileId, revoked: false });
 
 
 if (!file) {
-  return res.status(404).json({error: "File does not exist"})
+  return res.status(404).json({ error: "File does not exist" });
 }
 
 if (file.userId.toString() !== userId.toString() ) {
-  return res.status(404).json({error: "only owner can create link"})
+  return res.status(404).json({ error: "only owner can create link" });
 }
 
  if(existingLink){
-  res.json({
-  shareUrl: `http://localhost:4000/file/s/${existingLink.token}` });
+  return res.json({
+  shareUrl: `${process.env.SERVER_BASE_URL}/file/s/${existingLink.token}` });
  }
 
-const token = crypto.randomUUID(16).toString("hex");
+const token = crypto.randomUUID();
 
 await ShareLink.create({
   fileId,
   token,
-  permission: "view", // start simple
+  permission,
   expiresAt: null,
   revoked: false,
   createdBy: userId
 });
 res.json({
-  shareUrl: `http://localhost:4000/file/s/${token}`
+  shareUrl: `${process.env.SERVER_BASE_URL}/file/s/${token}`
 });
 }
 
+export const validateShareEmail = async (req, res) => {
+  const email = String(req.body?.email || "").trim().toLowerCase();
+  const emailRegex = /^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}$/;
+  if (!emailRegex.test(email)) {
+    return res.status(400).json({ error: "Invalid email" });
+  }
+
+  const user = await User.findOne({ email, isDeleted: false })
+    .select("_id email fullname picture")
+    .lean();
+  return res.json({ exists: Boolean(user), user: user || null });
+};
+
+async function ensureShareLinkForFile(fileId, ownerId) {
+  let link = await ShareLink.findOne({ fileId, revoked: false });
+  if (link) return link;
+
+  const token = crypto.randomUUID();
+  link = await ShareLink.create({
+    fileId,
+    token,
+    permission: "view",
+    expiresAt: null,
+    revoked: false,
+    createdBy: ownerId,
+  });
+  return link;
+}
+
+export const inviteFileRecipient = async (req, res) => {
+  const ownerId = req.user._id;
+  const { fileId } = req.params;
+  const permission = req.body?.permission || "viewer";
+  const email = String(req.body?.email || "").trim().toLowerCase();
+  const emailRegex = /^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}$/;
+
+  if (!emailRegex.test(email)) {
+    return res.status(400).json({ error: "Invalid email" });
+  }
+
+  if (!["viewer", "commenter", "editor"].includes(permission)) {
+    return res.status(400).json({ error: "Invalid permission" });
+  }
+
+  const file = await Files.findOne({ _id: fileId, userId: ownerId, isDeleted: false }).select("_id name");
+  if (!file) {
+    return res.status(404).json({ error: "File not found or unauthorized" });
+  }
+
+  const ownerEmail = String(req.user?.email || "").toLowerCase();
+  if (ownerEmail && ownerEmail === email) {
+    return res.status(400).json({ error: "You cannot share with your own email" });
+  }
+
+  const recipient = await User.findOne({ email, isDeleted: false }).select("_id email fullname").lean();
+  if (recipient?._id?.toString() === ownerId.toString()) {
+    return res.status(400).json({ error: "You cannot share with your own email" });
+  }
+
+  const inviteToken = crypto.randomUUID();
+
+  const shareRecord = await FileShare.findOneAndUpdate(
+    { fileId, recipientEmail: email },
+    {
+      $set: {
+        ownerId,
+        recipientUserId: recipient?._id || null,
+        permission,
+        status: recipient ? "accepted" : "pending",
+        token: inviteToken,
+      },
+    },
+    { upsert: true, new: true }
+  );
+
+  const shareLink = await ensureShareLinkForFile(fileId.toString(), ownerId);
+  const inviteUrl = `${process.env.SERVER_BASE_URL}/file/s/${shareLink.token}`;
+
+  try {
+    await sendShareInviteService({
+      to: email,
+      ownerName: req.user.fullname || "A user",
+      fileName: file.name,
+      permission,
+      inviteUrl,
+    });
+  } catch (error) {
+    return res.status(500).json({ error: "Failed to send invite email" });
+  }
+
+  return res.json({
+    message: "Invite sent",
+    share: {
+      id: shareRecord._id,
+      recipientEmail: shareRecord.recipientEmail,
+      recipientUserId: shareRecord.recipientUserId,
+      permission: shareRecord.permission,
+      status: shareRecord.status,
+    },
+    recipientExists: Boolean(recipient),
+  });
+};
+
+export const getFileRecipients = async (req, res) => {
+  const ownerId = req.user._id;
+  const { fileId } = req.params;
+
+  const file = await Files.findOne({ _id: fileId, userId: ownerId, isDeleted: false }).select("_id");
+  if (!file) {
+    return res.status(404).json({ error: "File not found or unauthorized" });
+  }
+
+  const recipients = await FileShare.find({ fileId, ownerId })
+    .populate("recipientUserId", "fullname email picture")
+    .select("_id recipientEmail recipientUserId permission status updatedAt")
+    .sort({ updatedAt: -1 })
+    .lean();
+
+  const normalized = recipients.map((recipient) => ({
+    _id: recipient._id,
+    recipientEmail: recipient.recipientEmail,
+    permission: recipient.permission,
+    status: recipient.status,
+    updatedAt: recipient.updatedAt,
+    recipientUser: recipient.recipientUserId
+      ? {
+          _id: recipient.recipientUserId._id,
+          fullname: recipient.recipientUserId.fullname,
+          email: recipient.recipientUserId.email,
+          picture: recipient.recipientUserId.picture,
+        }
+      : null,
+  }));
+
+  return res.json({ recipients: normalized });
+};
+
+export const revokeFileRecipient = async (req, res) => {
+  const ownerId = req.user._id;
+  const { fileId, recipientId } = req.params;
+
+  const file = await Files.findOne({ _id: fileId, userId: ownerId, isDeleted: false }).select("_id");
+  if (!file) {
+    return res.status(404).json({ error: "File not found or unauthorized" });
+  }
+
+  const result = await FileShare.deleteOne({ _id: recipientId, fileId, ownerId });
+  if (result.deletedCount === 0) {
+    return res.status(404).json({ error: "Recipient not found" });
+  }
+
+  return res.json({ message: "Recipient removed" });
+};
+
+export const acceptFileInvite = async (req, res) => {
+  const { token } = req.params;
+  const invite = await FileShare.findOne({ token });
+  if (!invite) {
+    return res.status(404).json({ error: "Invite not found" });
+  }
+
+  const userEmail = String(req.user?.email || "").toLowerCase();
+  if (!userEmail) {
+    return res.status(401).json({ error: "Not logged in" });
+  }
+  if (userEmail !== invite.recipientEmail) {
+    return res.status(403).json({ error: "Invite is not for this user" });
+  }
+
+  invite.recipientUserId = req.user._id;
+
+  invite.status = "accepted";
+  await invite.save();
+  return res.json({ message: "Invite accepted" });
+};
+
 export const getSharedFile = async (req, res) => {
-  const { token } = req.params
-  console.log({token});
+  const { token } = req.params;
   const link = await ShareLink.findOne({ token });
 
-if (!link || link.revoked) {
-  res.status(403).json({error: "access revoked or does not exist"})
-}
-if (link.expiresAt && link.expiresAt < Date.now()) throw 403;
+  if (!link || link.revoked) {
+    return res.status(403).json({ error: "access revoked or does not exist" });
+  }
+  if (link.expiresAt && link.expiresAt < Date.now()) {
+    return res.status(403).json({ error: "link has expired" });
+  }
 
-const fileData = await Files.findById(link.fileId);
-const filePath = `${process.cwd()}/storage/${fileData._id.toString()}${fileData.extension}`;
+  const fileData = await Files.findOne({ _id: link.fileId, isDeleted: false });
+  if (!fileData) {
+    return res.status(404).json({ error: "File not found" });
+  }
 
-// permission check based on link.permission
+  const isOwner = fileData.userId.toString() === req.user._id.toString();
+  if (!isOwner) {
+    const allowedRecipient = await FileShare.findOne({
+      fileId: fileData._id,
+      recipientEmail: String(req.user.email || "").toLowerCase(),
+      status: "accepted",
+    }).select("_id");
 
-res.setHeader("Content-Type", fileData.mimeType);
+    if (!allowedRecipient) {
+      return res.status(403).json({ error: "You do not have access to this file" });
+    }
+  }
+
+  const filePath = `${process.cwd()}/storage/${fileData._id.toString()}${fileData.extension}`;
+  res.setHeader("Content-Type", fileData.mimeType);
   res.setHeader("Content-Disposition", "inline");
 
   fs.createReadStream(filePath).pipe(res);
-
-}
+};
 
 export const deleteLink = async (req, res) => {
   const userId = req.user._id;
   const { fileId } = req.params
   const file = await Files.findById(fileId);
-  const existingLink = await ShareLink.findOneAndDelete({fileId})
-  res.json({message: "access deleted"})
+  if (!file) {
+    return res.status(404).json({ error: "File does not exist" });
+  }
+  if (file.userId.toString() !== userId.toString()) {
+    return res.status(403).json({ error: "only owner can revoke link" });
+  }
+
+  await ShareLink.findOneAndDelete({ fileId });
+  return res.json({message: "access deleted"})
 }

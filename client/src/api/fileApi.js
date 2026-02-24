@@ -67,3 +67,8 @@ export const bulkDeleteForeverFromBin = async ({ fileIds = [], directoryIds = []
   const { data } = await axiosWithCreds.post("/file/bulk/permanently-delete", { fileIds, directoryIds });
   return data;
 };
+
+export const bulkUnstarItems = async ({ fileIds = [], directoryIds = [] }) => {
+  const { data } = await axiosWithCreds.post("/file/bulk/unstar", { fileIds, directoryIds });
+  return data;
+};

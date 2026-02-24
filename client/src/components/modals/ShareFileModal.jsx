@@ -1,7 +1,15 @@
 import { useEffect, useState } from "react";
-import { X, FileText, Copy, Check } from "lucide-react";
-import { BASE_URL, getFileIcon } from "../../utility";
-import { createShareLink, getShareLink, revokeShareLink } from "../../api/shareApi";
+import { X, Copy, Check } from "lucide-react";
+import { getFileIcon } from "../../utility";
+import {
+  createShareLink,
+  getFileRecipients,
+  getShareLink,
+  inviteFileRecipient,
+  revokeFileRecipient,
+  revokeShareLink,
+  validateShareEmail,
+} from "../../api/shareApi";
 
 export default function ShareFileModal({
   fileId,
@@ -11,28 +19,104 @@ export default function ShareFileModal({
 }) {
   const [emailInput, setEmailInput] = useState("");
   const [sharedUsers, setSharedUsers] = useState([]);
+  const [selectedRecipients, setSelectedRecipients] = useState([]);
   const [selectedPermission, setSelectedPermission] = useState("viewer");
   const [loading, setLoading] = useState(false)
+  const [feedbackMessage, setFeedbackMessage] = useState("");
   const [linkEnabled, setLinkEnabled] = useState(false);
   const [shareableLink, setShareableLink] = useState("");
-  const [linkPermission, setLinkPermission] = useState("view");
+  const linkPermission = "view";
   const [copied, setCopied] = useState(false);
  
+  const isAlreadyShared = (email) =>
+    sharedUsers.some((user) => user.recipientEmail.toLowerCase() === email);
 
+  const isAlreadySelected = (email) =>
+    selectedRecipients.some((recipient) => recipient.email === email);
 
-  const handleAddUser = () => {
-    if (!emailInput.trim()) return;
+  const fetchSelectableRecipient = async (rawEmail) => {
+    const email = String(rawEmail || "").trim().toLowerCase();
+    if (!email) {
+      return null;
+    }
 
-    setSharedUsers((prev) => [
-      ...prev,
-      {
-        id: crypto.randomUUID(),
-        email: emailInput.trim(),
-        permission: selectedPermission,
-      },
-    ]);
+    const validation = await validateShareEmail(email);
+    if (isAlreadyShared(email)) {
+      throw new Error("This user already has access.");
+    }
 
-    setEmailInput("");
+    if (isAlreadySelected(email)) {
+      throw new Error("This user is already selected.");
+    }
+
+    if (!validation?.exists || !validation?.user) {
+      return {
+        _id: null,
+        email,
+        fullname: "",
+        picture: "",
+        isRegistered: false,
+      };
+    }
+
+    return {
+      _id: validation.user._id,
+      email: validation.user.email,
+      fullname: validation.user.fullname,
+      picture: validation.user.picture || "",
+      isRegistered: true,
+    };
+  };
+
+  const handleSelectRecipient = async () => {
+    try {
+      setLoading(true);
+      setFeedbackMessage("");
+      const recipient = await fetchSelectableRecipient(emailInput);
+      if (!recipient) return;
+      setSelectedRecipients((prev) => [...prev, recipient]);
+      setEmailInput("");
+    } catch (error) {
+      setFeedbackMessage(error.message || "Unable to validate email.");
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const handleAddUser = async () => {
+    try {
+      setLoading(true);
+      setFeedbackMessage("");
+
+      let recipientsToInvite = [...selectedRecipients];
+      if (emailInput.trim()) {
+        const recipient = await fetchSelectableRecipient(emailInput);
+        if (recipient) {
+          recipientsToInvite = [...recipientsToInvite, recipient];
+          setEmailInput("");
+        }
+      }
+
+      if (!recipientsToInvite.length) {
+        setFeedbackMessage("Select at least one user first.");
+        return;
+      }
+
+      for (const recipient of recipientsToInvite) {
+        await inviteFileRecipient(fileId, recipient.email, selectedPermission);
+      }
+
+      const recipientsData = await getFileRecipients(fileId);
+      setSharedUsers(recipientsData.recipients || []);
+      setSelectedRecipients([]);
+      setFeedbackMessage(`Invite sent to ${recipientsToInvite.length} user(s).`);
+    } catch (error) {
+      setFeedbackMessage(
+        error.response?.data?.error || error.message || "Failed to invite user."
+      );
+    } finally {
+      setLoading(false);
+    }
   };
 
 
@@ -47,7 +131,7 @@ const handleCreateShareLink = async () => {
     setLinkEnabled(true);
 
   } catch (error) {
-    console.error(error.response?.data?.error || error.message);
+    setFeedbackMessage(error.response?.data?.error || "Failed to create share link.");
   } finally {
     setLoading(false);
   }
@@ -63,21 +147,43 @@ const handleRevokeShareLink = async () => {
     setLinkEnabled(false);
 
   } catch (error) {
-    console.error(error.response?.data?.error || error.message);
+    setFeedbackMessage(error.response?.data?.error || "Failed to revoke share link.");
   } finally {
     setLoading(false);
   }
 };
 
-
-  const handleRemoveUser = (id) => {
-    setSharedUsers((prev) => prev.filter((u) => u.id !== id));
+  const removeSelectedRecipient = (email) => {
+    setSelectedRecipients((prev) => prev.filter((recipient) => recipient.email !== email));
   };
 
-  const handlePermissionChange = (id, permission) => {
-    setSharedUsers((prev) =>
-      prev.map((u) => (u.id === id ? { ...u, permission } : u))
-    );
+
+  const handleRemoveUser = async (id) => {
+    try {
+      setLoading(true);
+      await revokeFileRecipient(fileId, id);
+      setSharedUsers((prev) => prev.filter((u) => u._id !== id));
+    } catch (error) {
+      setFeedbackMessage(error.response?.data?.error || "Failed to remove user.");
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const handlePermissionChange = async (id, permission) => {
+    const current = sharedUsers.find((u) => u._id === id);
+    if (!current) return;
+
+    try {
+      setLoading(true);
+      await inviteFileRecipient(fileId, current.recipientEmail, permission);
+      const recipientsData = await getFileRecipients(fileId);
+      setSharedUsers(recipientsData.recipients || []);
+    } catch (error) {
+      setFeedbackMessage(error.response?.data?.error || "Failed to update permission.");
+    } finally {
+      setLoading(false);
+    }
   };
   const toggleLink = () => {
   
@@ -95,7 +201,6 @@ const handleGetExistingLink = async () => {
     setLoading(true);
 
     const result = await getShareLink(fileId);
-   console.log(result);
     if (!result.exists) {
       setLinkEnabled(false);
       setShareableLink("");
@@ -106,13 +211,23 @@ const handleGetExistingLink = async () => {
     setShareableLink(result.shareUrl);
 
   } catch (error) {
-    console.error(error.response?.data?.error || error.message);
+    setFeedbackMessage(error.response?.data?.error || "Failed to fetch share link.");
   } finally {
     setLoading(false);
   }
 };
 
-handleGetExistingLink()
+const loadRecipients = async () => {
+  try {
+    const recipientsData = await getFileRecipients(fileId);
+    setSharedUsers(recipientsData.recipients || []);
+  } catch {
+    setSharedUsers([]);
+  }
+};
+
+handleGetExistingLink();
+loadRecipients();
 
 }, [fileId]);
 
@@ -131,7 +246,7 @@ handleGetExistingLink()
         
 
       {/* <div className="w-full max-w-md rounded-lg bg-white shadow-lg overflow-hidden"> */}
-      <div className="relative w-full max-w-md max-h-[90vh] rounded-lg bg-white shadow-lg flex flex-col">
+      <div className="relative flex h-[90vh] w-full max-w-md flex-col overflow-hidden rounded-lg bg-white shadow-lg">
     {loading && (
   <div className="absolute inset-0 bg-white/60 flex items-center justify-center z-50">
     <div className="h-6 w-6 animate-spin rounded-full border-2 border-blue-600 border-t-transparent" />
@@ -159,7 +274,12 @@ handleGetExistingLink()
         </div>
 
         {/* Body */}
-        <div className="p-5 space-y-6">
+        <div className="min-h-0 flex-1 space-y-6 overflow-y-auto p-5">
+          {feedbackMessage && (
+            <p className="rounded-md bg-slate-100 px-3 py-2 text-xs text-slate-700">
+              {feedbackMessage}
+            </p>
+          )}
           {/* Add people */}
           <div>
             <label className="block text-sm font-medium mb-1">
@@ -170,17 +290,67 @@ handleGetExistingLink()
                 type="email"
                 value={emailInput}
                 onChange={(e) => setEmailInput(e.target.value)}
-                onKeyDown={(e) => e.key === "Enter" && handleAddUser()}
+                onKeyDown={(e) => {
+                  if (e.key === "Enter") {
+                    e.preventDefault();
+                    handleSelectRecipient();
+                  }
+                }}
                 placeholder="Enter email"
                 className="flex-1 rounded-md border px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
               />
               <button
+                onClick={handleSelectRecipient}
+                className="rounded-md border border-slate-300 px-3 text-sm hover:bg-slate-50"
+              >
+                Select
+              </button>
+              <button
                 onClick={handleAddUser}
-                className="rounded-md bg-blue-600 px-4 text-sm text-white hover:bg-blue-700"
+                className="rounded-md bg-blue-600 px-4 text-sm text-white hover:bg-blue-700 disabled:bg-blue-300"
+                disabled={!selectedRecipients.length && !emailInput.trim()}
               >
                 Add
               </button>
             </div>
+            {selectedRecipients.length > 0 && (
+              <div className="mt-3 max-h-24 overflow-y-auto pr-1">
+                <div className="flex flex-wrap gap-2">
+                {selectedRecipients.map((recipient) => (
+                  <div
+                    key={recipient.email}
+                    className="inline-flex items-center gap-2 rounded-full border bg-slate-50 px-2 py-1"
+                  >
+                    {recipient.picture ? (
+                      <img
+                        src={recipient.picture}
+                        alt={recipient.fullname || recipient.email}
+                        className="h-5 w-5 rounded-full object-cover"
+                      />
+                    ) : (
+                      <div className="flex h-5 w-5 items-center justify-center rounded-full bg-slate-300 text-[10px] font-semibold text-slate-700">
+                        {(recipient.fullname || recipient.email).charAt(0).toUpperCase()}
+                      </div>
+                    )}
+                    <span className="max-w-[160px] truncate text-xs text-slate-700">
+                      {recipient.email}
+                    </span>
+                    {!recipient.isRegistered && (
+                      <span className="rounded bg-amber-100 px-1.5 py-0.5 text-[10px] text-amber-700">
+                        invite-only
+                      </span>
+                    )}
+                    <button
+                      onClick={() => removeSelectedRecipient(recipient.email)}
+                      className="text-slate-500 hover:text-slate-700"
+                    >
+                      <X className="h-3.5 w-3.5" />
+                    </button>
+                  </div>
+                ))}
+                </div>
+              </div>
+            )}
           </div>
 
           {/* Permission selector */}
@@ -250,21 +420,23 @@ handleGetExistingLink()
                 People with access
               </h3>
               {/* <div className="space-y-2 overflow-scroll"> */}
-              <div className="space-y-2 max-h-28 overflow-y-auto pr-1">
+              <div className="max-h-56 space-y-2 overflow-y-auto pr-1">
 
                 {sharedUsers.map((user) => (
                   <div
-                    key={user.id}
+                    key={user._id}
                     className="flex justify-between items-center rounded-md bg-slate-50 p-3"
                   >
                     <span className="truncate text-sm">
-                      {user.email}
+                      {user.recipientUser?.fullname
+                        ? `${user.recipientUser.fullname} (${user.recipientEmail})`
+                        : user.recipientEmail}
                     </span>
                     <div className="flex gap-2">
                       <select
                         value={user.permission}
                         onChange={(e) =>
-                          handlePermissionChange(user.id, e.target.value)
+                          handlePermissionChange(user._id, e.target.value)
                         }
                         className="rounded-md border px-2 py-1 text-sm"
                       >
@@ -272,7 +444,7 @@ handleGetExistingLink()
                         <option value="commenter">Commenter</option>
                         <option value="editor">Editor</option>
                       </select>
-                      <button onClick={() => handleRemoveUser(user.id)}>
+                      <button onClick={() => handleRemoveUser(user._id)}>
                         <X className="w-4 h-4 text-slate-500" />
                       </button>
                     </div>
