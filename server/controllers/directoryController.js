@@ -2,11 +2,16 @@ import Directory from "../models/directoryModal.js"
 import Files from "../models/fileModal.js";
 import { rm, writeFile } from "fs/promises";
 import mongoose from "mongoose";
+import {
+  applySizeDeltaToAncestorChain,
+  ensureDirectorySizesInitialized,
+} from "../services/directorySizeService.js";
 
 
 export const getDirectorybyId = async (req, res) => {
   const user = req.user;
   const id = req.params.id || user.rootDirId.toString()
+  await ensureDirectorySizesInitialized(user._id);
 
   if (req.params.id && !mongoose.Types.ObjectId.isValid(req.params.id)) {
     return res.status(400).json({ error: "Invalid directory id" });
@@ -19,7 +24,7 @@ if (!doesExist) {
   const directoryData = await Directory.findOne({_id: id, isDeleted: false}).lean();
 
   const files = await Files.find({parentDirId: id , isDeleted: false}).select("name userId parentDirId size updatedAt isStarred isDeleted preview").lean()
-  const directories = await Directory.find({ parentDirId: id, isDeleted: false }).select("name userId parentDirId isDirectory isStarred isDeleted").lean()
+  const directories = await Directory.find({ parentDirId: id, isDeleted: false }).select("name userId parentDirId isDirectory isStarred isDeleted totalSize").lean()
   
   return res.status(200).json({ ...directoryData, files: files.map((file) => ({...file, id: file._id})), directories: directories.map((dir) => ({...dir, id: dir._id}) ) })
 }
@@ -66,6 +71,11 @@ export const renameDirectory = async (req, res, next) => {
 export const deleteFolderPermanently = async (req, res, next) => {
   const user = req.user;
   const id = req.params.id;
+  await ensureDirectorySizesInitialized(user._id);
+  const rootFolder = await Directory.findOne({ _id: id, userId: user._id }).select("_id totalSize isDeleted");
+  if (!rootFolder) {
+    return res.status(404).json({ error: "Folder not found" });
+  }
 
   async function getAllSubfolderIds(dirId) {
   const subfolders = await Directory.find({ parentDirId: dirId}).lean()
@@ -89,7 +99,15 @@ export const deleteFolderPermanently = async (req, res, next) => {
 }
 
   try {
-    deleteFolderRecursively(id)
+    if (!rootFolder.isDeleted) {
+      await applySizeDeltaToAncestorChain({
+        directoryId: rootFolder._id,
+        delta: -Number(rootFolder.totalSize || 0),
+        includeSelf: false,
+        userId: user._id,
+      });
+    }
+    await deleteFolderRecursively(id)
     res.status(200).json({msg: "folder deleted"})
   } catch (err) {
     next(err);
@@ -120,7 +138,8 @@ export const toggleDirectoryStar = async (req, res) => {
 };
 
 export const getStarredDirectories = async (req, res) => {
-  const userId = req.user
+  const userId = req.user._id;
+  await ensureDirectorySizesInitialized(userId);
 
   const dirs = await Directory.find({
     userId,
@@ -133,6 +152,7 @@ export const getStarredDirectories = async (req, res) => {
 export const moveFolderToBin = async (req, res) => {
   const { id } = req.params;
   const userId = req.user._id;
+  await ensureDirectorySizesInitialized(userId);
 
   const folder = await Directory.findOne({
     _id: id,
@@ -143,6 +163,12 @@ export const moveFolderToBin = async (req, res) => {
   if (!folder) {
     return res.status(404).json({ error: "Folder not found" });
   }
+  await applySizeDeltaToAncestorChain({
+    directoryId: folder._id,
+    delta: -Number(folder.totalSize || 0),
+    includeSelf: false,
+    userId,
+  });
 
   folder.isDeleted = true;
   folder.deletedAt = new Date();
@@ -154,6 +180,7 @@ export const moveFolderToBin = async (req, res) => {
 export const restoreFolder = async (req, res) => {
   const { id } = req.params;
   const userId = req.user._id;
+  await ensureDirectorySizesInitialized(userId);
 
   const folder = await Directory.findOne({
     _id: id,
@@ -164,6 +191,12 @@ export const restoreFolder = async (req, res) => {
   if (!folder) {
     return res.status(404).json({ error: "Folder not found in bin" });
   }
+  await applySizeDeltaToAncestorChain({
+    directoryId: folder._id,
+    delta: Number(folder.totalSize || 0),
+    includeSelf: false,
+    userId,
+  });
 
   folder.isDeleted = false;
   folder.deletedAt = null;
@@ -174,6 +207,7 @@ export const restoreFolder = async (req, res) => {
 
 export const getBinFolders = async (req, res) => {
   const userId = req.user._id;
+  await ensureDirectorySizesInitialized(userId);
 
   const folders = await Directory.find({
     userId,

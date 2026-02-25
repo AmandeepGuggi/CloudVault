@@ -16,6 +16,13 @@ import ShareLink from "../models/ShareLink.js";
 import FileShare from "../models/FileShare.js";
 import os from "os";
 import { sendShareInviteService } from "../services/sendShareInviteService.js";
+import {
+  applySizeDeltaForFiles,
+  applySizeDeltaToAncestorChain,
+  collectDirectoryTreeIds,
+  ensureDirectorySizesInitialized,
+  getTopLevelDirectories,
+} from "../services/directorySizeService.js";
 
 const execFileAsync = promisify(execFile);
 
@@ -89,50 +96,33 @@ async function collectFilesForSelection({ userId, fileIds = [], directoryIds = [
     .lean();
 }
 
-async function collectDirectoryTreeIds(rootIds, userId) {
-  const allIds = new Set(rootIds.map((id) => id.toString()));
-  let frontier = [...rootIds];
-
-  while (frontier.length > 0) {
-    const children = await Directory.find({
-      userId,
-      parentDirId: { $in: frontier },
-    }).select("_id").lean();
-
-    const next = [];
-    for (const child of children) {
-      const id = child._id.toString();
-      if (!allIds.has(id)) {
-        allIds.add(id);
-        next.push(child._id);
-      }
-    }
-    frontier = next;
-  }
-
-  return [...allIds].map((id) => new mongoose.Types.ObjectId(id));
-}
-
-
-
 export const createFile = async (req, res, next) => {
+  const MAX_FILE_SIZE_BYTES = 5 * 1024 * 1024;
   const user = req.user;
   const _id = req.params.parentDirId ?? req.user.rootDirId;
   const parentDirData = await Directory.findOne({ _id });
   if (!parentDirData) {
     return res.status(404).json({ error: "Parent directory does not exist" });
   }
+  await ensureDirectorySizesInitialized(user._id);
 
-  // const filename = req.headers.filename || "untitled";
-  const filename = decodeURIComponent(req.headers["x-filename"]) || "untitled";
-const fileSize = parseInt(req.headers["x-filesize"], 10);
+  const rawFilename = req.headers["x-filename"];
+  let filename = "untitled";
+  if (typeof rawFilename === "string" && rawFilename.trim()) {
+    try {
+      filename = decodeURIComponent(rawFilename);
+    } catch {
+      filename = rawFilename;
+    }
+  }
 
-if (!fileSize || fileSize > 5 * 1024 * 1024) {
-  req.destroy();   // kill stream immediately
-  return res.status(400).json({
-    error: "File size cannot be more than 5MB"
-  });
-}
+  const fileSize = Number.parseInt(req.headers["x-filesize"], 10);
+  if (Number.isNaN(fileSize)) {
+    return res.status(400).json({ error: "Missing or invalid file size" });
+  }
+  if (fileSize > MAX_FILE_SIZE_BYTES) {
+    return res.status(413).json({ error: "File size cannot be more than 5MB" });
+  }
 
   const extension = path.extname(filename);
 
@@ -151,15 +141,8 @@ if (!fileSize || fileSize > 5 * 1024 * 1024) {
     const fullFileName = `${insertedFile._id}${extension}`;
     const filePath = `${process.cwd()}/storage/${insertedFile._id}${extension}`;
     const writeStream = createWriteStream(`./storage/${fullFileName}`);
-    // 🔑 COUNT BYTES AS THEY FLOW
-    req.on("data", chunk => {
+    req.on("data", (chunk) => {
       bytesWritten += chunk.length;
-       if (bytesWritten > 5 * 1024 * 1024 ) {
-        console.log("bytes exceeding",);
-
-    writeStream.destroy();
-    req.destroy();
-  }
     });
     req.on("aborted", () => {
   console.log("Upload aborted");
@@ -181,6 +164,12 @@ if (!fileSize || fileSize > 5 * 1024 * 1024) {
     { _id: user._id },
     { $inc: { storageUsed: bytesWritten } }
   );
+  await applySizeDeltaToAncestorChain({
+    directoryId: parentDirData._id,
+    delta: bytesWritten,
+    includeSelf: true,
+    userId: user._id,
+  });
 
   // ONLY images get thumbnails
   if (finalMime.startsWith("image/")) {
@@ -293,6 +282,7 @@ export const driveFiles = async (req, res) => {
     if (!accessToken || !files?.length) {
       return res.status(400).json({ error: "Missing data" });
     }
+    await ensureDirectorySizesInitialized(userId);
 
     for (const file of files) {
       await importSingleFile(file, accessToken, userId, parentDirData);
@@ -309,12 +299,49 @@ export const bulkMoveToBin = async (req, res) => {
   const userId = req.user._id;
   const { fileIds = [], directoryIds = [] } = req.body || {};
   const now = new Date();
+  await ensureDirectorySizesInitialized(userId);
 
   const validFileIds = fileIds.filter((id) => mongoose.Types.ObjectId.isValid(id));
   const validDirIds = directoryIds.filter((id) => mongoose.Types.ObjectId.isValid(id));
 
   const fileObjectIds = validFileIds.map((id) => new mongoose.Types.ObjectId(id));
-  const dirObjectIds = validDirIds.map((id) => new mongoose.Types.ObjectId(id));
+
+  const topLevelDirectories = await getTopLevelDirectories({
+    directoryIds: validDirIds,
+    userId,
+    isDeleted: false,
+  });
+  const coveredDirectoryIds = await collectDirectoryTreeIds({
+    rootDirectoryIds: topLevelDirectories.map((dir) => dir._id),
+    userId,
+    isDeleted: false,
+  });
+  const coveredSet = new Set(coveredDirectoryIds.map((id) => id.toString()));
+
+  const explicitFiles = fileObjectIds.length
+    ? await Files.find({
+        _id: { $in: fileObjectIds },
+        userId,
+        isDeleted: false,
+      }).select("_id size parentDirId").lean()
+    : [];
+  const effectiveExplicitFiles = explicitFiles.filter(
+    (file) => !coveredSet.has(file.parentDirId?.toString())
+  );
+
+  await applySizeDeltaForFiles({
+    files: effectiveExplicitFiles,
+    sign: -1,
+    userId,
+  });
+  for (const directory of topLevelDirectories) {
+    await applySizeDeltaToAncestorChain({
+      directoryId: directory._id,
+      delta: -Number(directory.totalSize || 0),
+      includeSelf: false,
+      userId,
+    });
+  }
 
   const [fileUpdate, dirUpdate] = await Promise.all([
     fileObjectIds.length
@@ -323,9 +350,9 @@ export const bulkMoveToBin = async (req, res) => {
           { $set: { isDeleted: true, deletedAt: now } }
         )
       : Promise.resolve({ modifiedCount: 0 }),
-    dirObjectIds.length
+    validDirIds.length
       ? Directory.updateMany(
-          { _id: { $in: dirObjectIds }, userId, isDeleted: false },
+          { _id: { $in: validDirIds }, userId, isDeleted: false },
           { $set: { isDeleted: true, deletedAt: now } }
         )
       : Promise.resolve({ modifiedCount: 0 }),
@@ -409,12 +436,49 @@ export const bulkDownloadZip = async (req, res) => {
 export const bulkRestoreFromBin = async (req, res) => {
   const userId = req.user._id;
   const { fileIds = [], directoryIds = [] } = req.body || {};
+  await ensureDirectorySizesInitialized(userId);
 
   const validFileIds = fileIds.filter((id) => mongoose.Types.ObjectId.isValid(id));
   const validDirIds = directoryIds.filter((id) => mongoose.Types.ObjectId.isValid(id));
 
   const fileObjectIds = validFileIds.map((id) => new mongoose.Types.ObjectId(id));
-  const dirObjectIds = validDirIds.map((id) => new mongoose.Types.ObjectId(id));
+
+  const topLevelDirectories = await getTopLevelDirectories({
+    directoryIds: validDirIds,
+    userId,
+    isDeleted: true,
+  });
+  const coveredDirectoryIds = await collectDirectoryTreeIds({
+    rootDirectoryIds: topLevelDirectories.map((dir) => dir._id),
+    userId,
+    isDeleted: true,
+  });
+  const coveredSet = new Set(coveredDirectoryIds.map((id) => id.toString()));
+
+  const explicitFiles = fileObjectIds.length
+    ? await Files.find({
+        _id: { $in: fileObjectIds },
+        userId,
+        isDeleted: true,
+      }).select("_id size parentDirId").lean()
+    : [];
+  const effectiveExplicitFiles = explicitFiles.filter(
+    (file) => !coveredSet.has(file.parentDirId?.toString())
+  );
+
+  await applySizeDeltaForFiles({
+    files: effectiveExplicitFiles,
+    sign: 1,
+    userId,
+  });
+  for (const directory of topLevelDirectories) {
+    await applySizeDeltaToAncestorChain({
+      directoryId: directory._id,
+      delta: Number(directory.totalSize || 0),
+      includeSelf: false,
+      userId,
+    });
+  }
 
   const [fileUpdate, dirUpdate] = await Promise.all([
     fileObjectIds.length
@@ -423,9 +487,9 @@ export const bulkRestoreFromBin = async (req, res) => {
           { $set: { isDeleted: false, deletedAt: null } }
         )
       : Promise.resolve({ modifiedCount: 0 }),
-    dirObjectIds.length
+    validDirIds.length
       ? Directory.updateMany(
-          { _id: { $in: dirObjectIds }, userId, isDeleted: true },
+          { _id: { $in: validDirIds }, userId, isDeleted: true },
           { $set: { isDeleted: false, deletedAt: null } }
         )
       : Promise.resolve({ modifiedCount: 0 }),
@@ -441,6 +505,7 @@ export const bulkRestoreFromBin = async (req, res) => {
 export const bulkDeleteForeverFromBin = async (req, res) => {
   const userId = req.user._id;
   const { fileIds = [], directoryIds = [] } = req.body || {};
+  await ensureDirectorySizesInitialized(userId);
 
   const validFileIds = fileIds.filter((id) => mongoose.Types.ObjectId.isValid(id));
   const validDirIds = directoryIds.filter((id) => mongoose.Types.ObjectId.isValid(id));
@@ -457,7 +522,10 @@ export const bulkDeleteForeverFromBin = async (req, res) => {
     : [];
 
   const treeIds = ownedRootDirs.length
-    ? await collectDirectoryTreeIds(ownedRootDirs.map((d) => d._id), userId)
+    ? await collectDirectoryTreeIds({
+        rootDirectoryIds: ownedRootDirs.map((d) => d._id),
+        userId,
+      })
     : [];
 
   const filesFromDirs = treeIds.length
@@ -593,12 +661,13 @@ async function importSingleFile(file, accessToken, userId, parentDirData) {
   }
   const extension = path.extname(meta.name)
 
-   const insertedFile = await Files.insertOne({
+  const fileSize = Number(meta.size || 0);
+  const insertedFile = await Files.insertOne({
       extension,
       name: meta.name,
       parentDirId: parentDirData._id,
       userId,
-      size: meta.size,
+      size: fileSize,
       mimeType: meta.mimeType,
     });
         const filePath = `${process.cwd()}/storage/${insertedFile._id}${extension}`;
@@ -684,9 +753,15 @@ async function importSingleFile(file, accessToken, userId, parentDirData) {
       );
   }
 
-       await User.updateOne(
+  await applySizeDeltaToAncestorChain({
+    directoryId: parentDirData._id,
+    delta: fileSize,
+    includeSelf: true,
+    userId,
+  });
+  await User.updateOne(
     { _id: userId },
-    { $inc: { storageUsed: meta.size } })
+    { $inc: { storageUsed: fileSize } })
 
   // 4️⃣ Insert DB record (example)
   await saveFileToDB({
@@ -769,17 +844,16 @@ export const updateFile = async (req, res, next) => {
 
 export const deleteFilePermanently =  async (req, res, next) => {
   const { id } = req.params;
+  await ensureDirectorySizesInitialized(req.user._id);
   const fileData = await Files.findOne({_id: id, userId: req.user._id, isDeleted: true});
+  if (!fileData) {
+    return res.status(404).json({ error: "File not found!" });
+  }
 
  await User.updateOne(
   { _id: req.user._id },
   { $inc: { storageUsed: -fileData.size } }
 );
-
-  // Check if file exists
-  if (!fileData) {
-    return res.status(404).json({ error: "File not found!" });
-  }
 
   try {
     // Remove file from /storage
@@ -831,17 +905,24 @@ export const getStarredFiles = async (req, res) => {
 export const moveFileToBin = async (req, res) => {
   const { id } = req.params;
   const userId = req.user._id;
-const file = await Files.findOneAndUpdate(
-    { _id: id, userId },
-    {
-      isDeleted: false,
-    },
-  );
+  await ensureDirectorySizesInitialized(userId);
+  const file = await Files.findOne({
+    _id: id,
+    userId,
+    isDeleted: false,
+  }).select("_id size parentDirId");
 
- if (!file) {
+  if (!file) {
     return res.status(404).json({ error: "File not found" });
   }
-  const delFile = await Files.findOneAndUpdate(
+
+  await applySizeDeltaToAncestorChain({
+    directoryId: file.parentDirId,
+    delta: -Number(file.size || 0),
+    includeSelf: true,
+    userId,
+  });
+  await Files.findOneAndUpdate(
     { _id: id, userId },
     {
       isDeleted: true,
@@ -867,6 +948,22 @@ export const getBinFiles = async (req, res) => {
 export const restoreFile = async (req, res) => {
   const { id } = req.params;
   const userId = req.user._id;
+  await ensureDirectorySizesInitialized(userId);
+
+  const existingFile = await Files.findOne({
+    _id: id,
+    userId,
+    isDeleted: true,
+  }).select("_id size parentDirId");
+  if (!existingFile) {
+    return res.status(404).json({ error: "File not found" });
+  }
+  await applySizeDeltaToAncestorChain({
+    directoryId: existingFile.parentDirId,
+    delta: Number(existingFile.size || 0),
+    includeSelf: true,
+    userId,
+  });
 
   const file = await Files.findOneAndUpdate(
     { _id: id, userId },
@@ -876,10 +973,6 @@ export const restoreFile = async (req, res) => {
     },
     { new: true }
   );
-
-  if (!file) {
-    return res.status(404).json({ error: "File not found" });
-  }
 
   res.json({ success: true });
 };

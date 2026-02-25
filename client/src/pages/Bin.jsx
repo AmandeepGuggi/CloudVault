@@ -233,7 +233,9 @@ export default function Bin() {
                 <div className="min-w-0">
                   <p className="truncate text-sm text-gray-700">{item.name}</p>
                   <p className="text-[11px] text-gray-400">
-                    {item.type === "folder" ? "Folder" : formatBytes(item.size)}
+                    {item.type === "folder"
+                      ? formatBytes(Number(item.totalSize || 0))
+                      : formatBytes(item.size)}
                   </p>
                 </div>
               </div>

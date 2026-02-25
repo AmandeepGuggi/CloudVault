@@ -32,6 +32,11 @@ const directorySchema = new Schema({
         type: Date,
         default: null
     },
+    totalSize: {
+        type: Number,
+        default: 0,
+        min: 0
+    },
 }, {
     strict: 'throw',
     timestamps: true,

@@ -209,9 +209,11 @@ export default function Starred() {
 
               <div className="min-w-0">
                 <p className="truncate text-sm text-gray-700">{item.name}</p>
-                {!item.isDirectory && (
-                  <p className="text-[11px] text-gray-400">{formatBytes(item.size)}</p>
-                )}
+                <p className="text-[11px] text-gray-400">
+                  {item.isDirectory
+                    ? formatBytes(Number(item.totalSize || 0))
+                    : formatBytes(item.size)}
+                </p>
               </div>
             </div>
 

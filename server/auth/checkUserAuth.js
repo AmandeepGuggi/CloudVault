@@ -4,7 +4,6 @@ import User from "../models/userModal.js"
 
 export default async function checkAuth(req, res, next) {
   const { sid } = req.signedCookies;
- console.log("signedCookie", req.signedCookies, sid, );
   if (!sid) {
     return res.status(401).json({ error: "No sid ,Not authenticated, Not logged!" });
   }

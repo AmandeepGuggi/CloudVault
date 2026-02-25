@@ -378,11 +378,23 @@ const [directoryName, setDirectoryName] = useState("My Files");
        * Select multiple files
        */
       function handleFileSelect(e) {
+        const MAX_FILE_SIZE_BYTES = 5 * 1024 * 1024;
         const selectedFiles = Array.from(e.target.files);
         if (selectedFiles.length === 0) return;
+
+        const oversizedFiles = selectedFiles.filter((file) => file.size > MAX_FILE_SIZE_BYTES);
+        const allowedFiles = selectedFiles.filter((file) => file.size <= MAX_FILE_SIZE_BYTES);
+
+        if (oversizedFiles.length > 0) {
+          showStatus("error", `${oversizedFiles.length} file(s) exceed 5MB and were not uploaded.`);
+        }
+        if (allowedFiles.length === 0) {
+          e.target.value = "";
+          return;
+        }
     
         // Build a list of "temp" items
-        const newItems = selectedFiles.map((file) => {
+        const newItems = allowedFiles.map((file) => {
           const tempId = `temp-${Date.now()}-${Math.random()}`;
           
           return {
@@ -474,11 +486,20 @@ const [directoryName, setDirectoryName] = useState("My Files");
           if (xhr.status >= 200 && xhr.status < 300) {
             processUploadQueue(restQueue, completed + 1, failed);
           } else {
+            let serverMessage = "Upload failed";
+            try {
+              const parsed = JSON.parse(xhr.responseText || "{}");
+              if (parsed?.error) serverMessage = parsed.error;
+            } catch {
+              // ignore parse failures and show fallback message
+            }
+            showStatus("error", `${currentItem.name}: ${serverMessage}`);
             processUploadQueue(restQueue, completed, failed + 1);
           }
         });
 
         xhr.addEventListener("error", () => {
+          showStatus("error", `${currentItem.name}: Upload failed due to a network error.`);
           processUploadQueue(restQueue, completed, failed + 1);
         });
 
@@ -934,6 +955,14 @@ async function toggleStar(id, isDirectory) {
           {statusMessage.text}
         </div>
       )}
+      <input
+        ref={fileInputRef}
+        id="file-upload"
+        type="file"
+        style={{ display: "none" }}
+        multiple
+        onChange={handleFileSelect}
+      />
         <div className="md:sticky md:-top-7 z-10 bg-[#ffffff] ">
         <div className="flex flex-col md:flex-row md:items-center justify-between py-2 border-b mb-6 border-gray-300">
 
@@ -952,7 +981,7 @@ async function toggleStar(id, isDirectory) {
 
   <button
     onClick={() => {
-      fileInputRef.current.click();
+      fileInputRef.current?.click();
     }}
     className="flex items-center gap-2 px-4 py-2 text-sm font-medium
                rounded-md bg-kala text-white cursor-pointer"
@@ -972,14 +1001,6 @@ async function toggleStar(id, isDirectory) {
 </button>
   
 
-  <input
-          ref={fileInputRef}
-          id="file-upload"
-          type="file"
-          style={{ display: "none" }}
-          multiple
-          onChange={handleFileSelect}
-        />
 </div>
 
 
@@ -1029,7 +1050,7 @@ async function toggleStar(id, isDirectory) {
 
   <button
     onClick={() => {
-      fileInputRef.current.click();
+      fileInputRef.current?.click();
     }}
     className="flex items-center gap-2 px-4 py-2 text-sm font-medium
                rounded-md bg-kala text-white hover:bg-black-700"
@@ -1037,14 +1058,6 @@ async function toggleStar(id, isDirectory) {
     <Upload size={16} />
     Upload File
   </button>
-  <input
-          ref={fileInputRef}
-          id="file-upload"
-          type="file"
-          style={{ display: "none" }}
-          multiple
-          onChange={handleFileSelect}
-        />
 </div>
   <div className="flex items-center gap-3"> <div className="relative md:hidden" ref={dropdownRef}>
       {/* Filter Button */}
@@ -1247,6 +1260,11 @@ onDoubleClick={() => handleItemOpen(item)}
             {formatBytes(item.size)}
           </p>
         )}
+        {item.size === undefined && (
+          <p className="text-gray-400 text-sm">
+            {formatBytes(Number(item.totalSize || 0))}
+          </p>
+        )}
       </div>
     </div>
 
@@ -1307,6 +1325,9 @@ onDoubleClick={() => handleItemOpen(item)}
             <FaFolder className="text-4xl text-kala shrink-0" />
              <div className="flex flex-col truncate min-w-0 ">
         <p className="text-sm truncate pl-1">{item.name}</p>
+        <p className="text-gray-400 text-sm pl-1">
+          {formatBytes(Number(item.totalSize || 0))}
+        </p>
       </div>
      
         </div>
